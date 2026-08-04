@@ -73,7 +73,7 @@ export function DashboardPreview() {
         <span className="size-2.5 rounded-full bg-zinc-700" />
         <span className="size-2.5 rounded-full bg-zinc-700" />
         <span className="size-2.5 rounded-full bg-zinc-700" />
-        <span className="ml-3 text-xs text-zinc-500 font-mono">dashboard.silentra.app</span>
+        <span className="ml-3 text-xs text-zinc-500 font-mono">ticketbot.silentra.me</span>
       </div>
 
       <div className="flex h-[480px] overflow-hidden">

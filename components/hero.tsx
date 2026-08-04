@@ -86,15 +86,18 @@ export function Hero() {
             >
               <Button
                 size="lg"
-                className="bg-foreground text-background hover:bg-foreground/90 font-medium gap-2"
+                onClick={() => window.open("https://discord.com/oauth2/authorize?client_id=1303728329689399297&permissions=8&integration_type=0&scope=bot", "_blank")}
+                className="bg-foreground cursor-pointer text-background hover:bg-foreground/90 font-medium gap-2"
               >
-                Add to Discord
+                  Add to Discord
                 <ArrowRight className="size-4" data-icon="inline-end" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                className="border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/05 gap-2"
+                onClick={() => window.open("/dashboard", "_blank")}
+                aria-label="Open Dashboard"
+                className="border-white/10 cursor-pointer text-muted-foreground hover:text-foreground hover:bg-white/05 gap-2"
               >
                 <GitBranch className="size-4" data-icon="inline-start" />
                 Open Dashboard
@@ -120,7 +123,7 @@ export function Hero() {
                 ))}
               </div>
               <p className="text-sm text-muted-foreground">
-                Trusted by <span className="text-foreground">500+</span> Discord communities
+                Trusted by <span className="text-foreground">9+</span> Discord communities
               </p>
             </motion.div>
           </div>

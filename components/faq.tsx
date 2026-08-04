@@ -83,11 +83,11 @@ export function FAQ() {
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.1 }}
         >
-          <Accordion className="flex flex-col gap-2">
+          <Accordion type="single" collapsible className="flex flex-col gap-2">
             {faqs.map((faq, i) => (
               <AccordionItem
                 key={i}
-                value={i}
+                value={`${i}`}
                 className="glass rounded-xl border border-white/08 px-5 data-[panel-open]:bg-white/05"
               >
                 <AccordionTrigger className="text-sm font-medium text-foreground text-left hover:no-underline py-4">
