@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import DashboardView from "./DashboardView";
 import { getFullDashboardData } from "@/lib/dashboard-service";
 
+
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
@@ -17,8 +18,9 @@ export default async function DashboardPage() {
     image: session.user.image ?? null,
   };
 
-  const defaultGuildId = "1303728329689399297"; 
+  const defaultGuildId = "1303728329689399297";
   const data = await getFullDashboardData(defaultGuildId);
 
-  return <DashboardView user={user} data={data} />;
+  // Alterado de data={data} para initialData={data}
+  return <DashboardView user={user} initialData={data} />;
 }

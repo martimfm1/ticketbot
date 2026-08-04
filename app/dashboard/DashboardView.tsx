@@ -42,24 +42,25 @@ interface Toast {
   message: string;
 }
 
-export default function DashboardView({ user, initialData }: DashboardViewProps) {
+export default function DashboardView({
+  user,
+  initialData,
+}: DashboardViewProps) {
   const [data, setData] = useState<FullDashboardData>(initialData);
   const [activeTab, setActiveTab] = useState("Overview");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Estado para pesquisa/filtros
   const [searchTerm, setSearchTerm] = useState("");
 
   // Estado dos formulários de definição
   const [formData, setFormData] = useState({
-    ticket_category_id: data.serverConfig.ticket_category_id || "",
-    admin_role_name: data.serverConfig.admin_role_name || "",
-    transcript_channel_id: data.serverConfig.transcript_channel_id || "",
-    language: data.serverConfig.language || "en",
-    security_anti_spam: data.securityConfig?.anti_spam ?? true,
-    security_max_tickets: data.securityConfig?.max_tickets_per_user || 3,
+    ticket_category_id: data?.serverConfig?.ticket_category_id || "",
+    admin_role_name: data?.serverConfig?.admin_role_name || "",
+    transcript_channel_id: data?.serverConfig?.transcript_channel_id || "",
+    language: data?.serverConfig?.language || "en",
+    security_anti_spam: data?.securityConfig?.anti_spam ?? true,
+    security_max_tickets: data?.securityConfig?.max_tickets_per_user || 3,
   });
 
   const addToast = (message: string, type: "success" | "error" = "success") => {
@@ -74,7 +75,9 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      const res = await fetch(`/api/dashboard-metrics?guild_id=${data.guildId}`);
+      const res = await fetch(
+        `/api/dashboard-metrics?guild_id=${data.guildId}`,
+      );
       if (res.ok) {
         const freshData = await res.json();
         setData(freshData);
@@ -118,7 +121,10 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
   };
 
   // Moderar Sugestões
-  const handleModerateSuggestion = async (messageId: string, status: "approved" | "rejected") => {
+  const handleModerateSuggestion = async (
+    messageId: string,
+    status: "approved" | "rejected",
+  ) => {
     try {
       const res = await fetch("/api/suggestions", {
         method: "PATCH",
@@ -131,7 +137,7 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
       setData((prev) => ({
         ...prev,
         suggestions: prev.suggestions.map((s) =>
-          s.message_id === messageId ? { ...s, status } : s
+          s.message_id === messageId ? { ...s, status } : s,
         ),
       }));
       addToast(`Sugestão ${status === "approved" ? "aprovada" : "rejeitada"}!`);
@@ -146,7 +152,7 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
       (t) =>
         t.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
         t.user_id.includes(searchTerm) ||
-        t.channel_id.includes(searchTerm)
+        t.channel_id.includes(searchTerm),
     );
   }, [data.transcripts, searchTerm]);
 
@@ -178,7 +184,11 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
                   : "bg-zinc-900 border-red-500/30 text-red-400"
               }`}
             >
-              {toast.type === "success" ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              {toast.type === "success" ? (
+                <CheckCircle2 className="w-4 h-4" />
+              ) : (
+                <AlertCircle className="w-4 h-4" />
+              )}
               {toast.message}
             </motion.div>
           ))}
@@ -213,7 +223,9 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/40"
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? "text-zinc-100" : "text-zinc-500"}`} />
+                  <Icon
+                    className={`w-4 h-4 ${isActive ? "text-zinc-100" : "text-zinc-500"}`}
+                  />
                   {item.name}
                 </button>
               );
@@ -224,18 +236,29 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
         <div className="pt-4 border-t border-zinc-800/60 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             {user.image ? (
-              <img src={user.image} alt={user.name} className="w-8 h-8 rounded-full border border-zinc-800 shrink-0 object-cover" />
+              <img
+                src={user.image}
+                alt={user.name}
+                className="w-8 h-8 rounded-full border border-zinc-800 shrink-0 object-cover"
+              />
             ) : (
               <div className="w-8 h-8 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center font-mono text-xs">
                 {user.name[0]}
               </div>
             )}
             <div className="truncate">
-              <p className="text-xs font-medium text-zinc-200 truncate">{user.name}</p>
-              <p className="text-[10px] text-zinc-500 font-mono">#{user.id.slice(0, 5)}</p>
+              <p className="text-xs font-medium text-zinc-200 truncate">
+                {user.name}
+              </p>
+              <p className="text-[10px] text-zinc-500 font-mono">
+                #{user.id.slice(0, 5)}
+              </p>
             </div>
           </div>
-          <button onClick={() => signOut({ callbackUrl: "/login" })} className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900 transition-colors">
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            className="p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-zinc-900 transition-colors"
+          >
             <LogOut className="w-4 h-4" />
           </button>
         </div>
@@ -245,8 +268,12 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
       <main className="flex-1 overflow-y-auto p-6 lg:p-8 space-y-6">
         <header className="flex items-center justify-between pb-4 border-b border-zinc-800/60">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight text-zinc-100">{activeTab}</h1>
-            <p className="text-xs text-zinc-500 mt-0.5">Gestão em Tempo Real do Bot</p>
+            <h1 className="text-xl font-semibold tracking-tight text-zinc-100">
+              {activeTab}
+            </h1>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              Gestão em Tempo Real do Bot
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -255,7 +282,9 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
               className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors"
               title="Sincronizar dados"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-emerald-400" : ""}`} />
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-emerald-400" : ""}`}
+              />
             </button>
             <span className="text-xs font-mono text-zinc-500 px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800">
               guild:{data.guildId}
@@ -265,51 +294,92 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
 
         {/* Renderização Dinâmica de Conteúdo com Framer Motion */}
         <AnimatePresence mode="wait">
-          <motion.div key={activeTab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}>
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+          >
             {activeTab === "Overview" && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-                    <span className="text-xs text-zinc-400 font-medium">Tickets Abertos</span>
-                    <p className="text-2xl font-bold mt-3 text-zinc-100">{data.overview.openTickets}</p>
+                    <span className="text-xs text-zinc-400 font-medium">
+                      Tickets Abertos
+                    </span>
+                    <p className="text-2xl font-bold mt-3 text-zinc-100">
+                      {data.overview.openTickets}
+                    </p>
                   </div>
                   <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-                    <span className="text-xs text-zinc-400 font-medium">Resolvidos Hoje</span>
-                    <p className="text-2xl font-bold mt-3 text-zinc-100">{data.overview.resolvedToday}</p>
+                    <span className="text-xs text-zinc-400 font-medium">
+                      Resolvidos Hoje
+                    </span>
+                    <p className="text-2xl font-bold mt-3 text-zinc-100">
+                      {data.overview.resolvedToday}
+                    </p>
                   </div>
                   <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-                    <span className="text-xs text-zinc-400 font-medium">Sugestões Pendentes</span>
-                    <p className="text-2xl font-bold mt-3 text-zinc-100">{data.overview.pendingSuggestions}</p>
+                    <span className="text-xs text-zinc-400 font-medium">
+                      Sugestões Pendentes
+                    </span>
+                    <p className="text-2xl font-bold mt-3 text-zinc-100">
+                      {data.overview.pendingSuggestions}
+                    </p>
                   </div>
                   <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80">
-                    <span className="text-xs text-zinc-400 font-medium">Atividade (24h)</span>
-                    <p className="text-2xl font-bold mt-3 text-zinc-100">{data.overview.total24h}</p>
+                    <span className="text-xs text-zinc-400 font-medium">
+                      Atividade (24h)
+                    </span>
+                    <p className="text-2xl font-bold mt-3 text-zinc-100">
+                      {data.overview.total24h}
+                    </p>
                   </div>
                 </div>
 
                 {/* Moderação de Sugestões Pendentes no Overview */}
-                {data.suggestions.filter((s) => s.status === "pending").length > 0 && (
+                {data.suggestions.filter((s) => s.status === "pending").length >
+                  0 && (
                   <div className="p-5 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-4">
-                    <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Sugestões Aguardando Moderação</h2>
+                    <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                      Sugestões Aguardando Moderação
+                    </h2>
                     <div className="divide-y divide-zinc-800/60">
                       {data.suggestions
                         .filter((s) => s.status === "pending")
                         .map((s) => (
-                          <div key={s.message_id} className="py-3 flex items-center justify-between text-xs">
+                          <div
+                            key={s.message_id}
+                            className="py-3 flex items-center justify-between text-xs"
+                          >
                             <div>
-                              <p className="text-zinc-200 font-medium">{s.suggestion_text}</p>
-                              <p className="text-[10px] text-zinc-500 font-mono">Autor: {s.author_id}</p>
+                              <p className="text-zinc-200 font-medium">
+                                {s.suggestion_text}
+                              </p>
+                              <p className="text-[10px] text-zinc-500 font-mono">
+                                Autor: {s.author_id}
+                              </p>
                             </div>
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => handleModerateSuggestion(s.message_id, "approved")}
+                                onClick={() =>
+                                  handleModerateSuggestion(
+                                    s.message_id,
+                                    "approved",
+                                  )
+                                }
                                 className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20"
                                 title="Aprovar"
                               >
                                 <Check className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => handleModerateSuggestion(s.message_id, "rejected")}
+                                onClick={() =>
+                                  handleModerateSuggestion(
+                                    s.message_id,
+                                    "rejected",
+                                  )
+                                }
                                 className="p-1.5 rounded-md bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20"
                                 title="Rejeitar"
                               >
@@ -328,7 +398,8 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
               <div className="p-6 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-4">
                 <div className="flex items-center justify-between gap-4">
                   <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-blue-400" /> Transcripts Gravados
+                    <FileText className="w-4 h-4 text-blue-400" /> Transcripts
+                    Gravados
                   </h2>
                   <div className="relative w-64">
                     <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -344,16 +415,27 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
 
                 <div className="divide-y divide-zinc-800/60">
                   {filteredTranscripts.length === 0 ? (
-                    <p className="text-xs text-zinc-500 py-4">Nenhum transcript encontrado para o filtro.</p>
+                    <p className="text-xs text-zinc-500 py-4">
+                      Nenhum transcript encontrado para o filtro.
+                    </p>
                   ) : (
                     filteredTranscripts.map((t) => (
-                      <div key={t.channel_id} className="py-3 flex items-center justify-between text-xs">
+                      <div
+                        key={t.channel_id}
+                        className="py-3 flex items-center justify-between text-xs"
+                      >
                         <div>
-                          <p className="font-medium text-zinc-200">{t.subject}</p>
-                          <p className="text-[10px] text-zinc-500 font-mono">Channel: {t.channel_id} | User: {t.user_id}</p>
+                          <p className="font-medium text-zinc-200">
+                            {t.subject}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 font-mono">
+                            Channel: {t.channel_id} | User: {t.user_id}
+                          </p>
                         </div>
                         <span className="text-zinc-500 font-mono text-[11px]">
-                          {t.closed_at ? new Date(t.closed_at).toLocaleDateString() : "Fechado"}
+                          {t.closed_at
+                            ? new Date(t.closed_at).toLocaleDateString()
+                            : "Fechado"}
                         </span>
                       </div>
                     ))
@@ -363,26 +445,44 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
             )}
 
             {(activeTab === "Ticket Panels" || activeTab === "Settings") && (
-              <form onSubmit={handleSaveConfig} className="p-6 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-4">
+              <form
+                onSubmit={handleSaveConfig}
+                className="p-6 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-4"
+              >
                 <h2 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
-                  <Settings className="w-4 h-4 text-zinc-400" /> Guardar Definições
+                  <Settings className="w-4 h-4 text-zinc-400" /> Guardar
+                  Definições
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-zinc-400 mb-1">Category ID</label>
+                    <label className="block text-zinc-400 mb-1">
+                      Category ID
+                    </label>
                     <input
                       type="text"
                       value={formData.ticket_category_id}
-                      onChange={(e) => setFormData({ ...formData, ticket_category_id: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ticket_category_id: e.target.value,
+                        })
+                      }
                       className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-200 font-mono focus:outline-none focus:border-zinc-700"
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 mb-1">Admin Role Name</label>
+                    <label className="block text-zinc-400 mb-1">
+                      Admin Role Name
+                    </label>
                     <input
                       type="text"
                       value={formData.admin_role_name}
-                      onChange={(e) => setFormData({ ...formData, admin_role_name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          admin_role_name: e.target.value,
+                        })
+                      }
                       className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-200 focus:outline-none focus:border-zinc-700"
                     />
                   </div>
@@ -392,7 +492,11 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
                   disabled={saving}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-100 text-zinc-950 text-xs font-semibold hover:bg-zinc-200 transition-colors"
                 >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {saving ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
                   Guardar Dados
                 </button>
               </form>

@@ -1,52 +1,10 @@
 import { supabaseServer } from "@/lib/supabase";
-
-export interface FullDashboardData {
-  guildId: string;
-  serverConfig: {
-    guild_id: number;
-    ticket_category_id: number | null;
-    admin_role_name: string | null;
-    transcript_channel_id: number | null;
-    language: string | null;
-  };
-  securityConfig: any;
-  overview: {
-    openTickets: number;
-    resolvedToday: number;
-    pendingSuggestions: number;
-    total24h: number;
-    hourlyActivity: number[];
-    recentTickets: Array<{
-      id: string;
-      subject: string;
-      status: string;
-      time: string;
-      variant: "open" | "pending" | "resolved";
-    }>;
-  };
-  transcripts: Array<{
-    channel_id: string;
-    user_id: string;
-    subject: string;
-    opened_at: string;
-    closed_at: string;
-  }>;
-  infractions: Array<{
-    user_id: string;
-    strikes: number;
-    last_infraction_type: string;
-    last_infraction_at: number;
-  }>;
-  suggestions: Array<{
-    message_id: string;
-    author_id: string;
-    suggestion_text: string;
-    status: string;
-    created_at: string;
-  }>;
-}
+import { FullDashboardData } from "@/types/dashboard";
 
 export async function getFullDashboardData(guildId: string): Promise<FullDashboardData> {
+  // Mantém o ID SEMPRE como string para evitar perda de precisão em IDs de 19 dígitos
+  const safeGuildId = String(guildId).trim();
+
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -64,19 +22,24 @@ export async function getFullDashboardData(guildId: string): Promise<FullDashboa
     infractionsRes,
     allSuggestionsRes,
   ] = await Promise.all([
-    supabaseServer.from("servers").select("*").eq("guild_id", guildId).maybeSingle(),
-    supabaseServer.from("security_configs").select("*").eq("guild_id", guildId).maybeSingle(),
-    supabaseServer.from("tickets").select("channel_id", { count: "exact", head: true }).eq("guild_id", guildId).eq("status", "open"),
-    supabaseServer.from("tickets").select("channel_id", { count: "exact", head: true }).eq("guild_id", guildId).eq("status", "resolved").gte("closed_at", startOfDay),
-    supabaseServer.from("tickets").select("channel_id, subject, status, opened_at").eq("guild_id", guildId).order("opened_at", { ascending: false }).limit(5),
-    supabaseServer.from("tickets").select("opened_at").eq("guild_id", guildId).gte("opened_at", twentyFourHoursAgo),
-    supabaseServer.from("suggestions").select("message_id", { count: "exact", head: true }).eq("guild_id", guildId).eq("status", "pending"),
-    supabaseServer.from("tickets").select("*").eq("guild_id", guildId).eq("status", "resolved").order("closed_at", { ascending: false }).limit(20),
-    supabaseServer.from("security_infractions").select("*").eq("guild_id", guildId).order("last_infraction_at", { ascending: false }).limit(20),
-    supabaseServer.from("suggestions").select("*").eq("guild_id", guildId).order("created_at", { ascending: false }).limit(20),
+    supabaseServer.from("servers").select("*").eq("guild_id", safeGuildId).maybeSingle(),
+    supabaseServer.from("security_configs").select("*").eq("guild_id", safeGuildId).maybeSingle(),
+    supabaseServer.from("tickets").select("channel_id", { count: "exact", head: true }).eq("guild_id", safeGuildId).ilike("status", "open"),
+    supabaseServer.from("tickets").select("channel_id", { count: "exact", head: true }).eq("guild_id", safeGuildId).ilike("status", "resolved").gte("closed_at", startOfDay),
+    supabaseServer.from("tickets").select("channel_id, subject, status, opened_at").eq("guild_id", safeGuildId).order("opened_at", { ascending: false }).limit(5),
+    supabaseServer.from("tickets").select("opened_at").eq("guild_id", safeGuildId).gte("opened_at", twentyFourHoursAgo),
+    supabaseServer.from("suggestions").select("message_id", { count: "exact", head: true }).eq("guild_id", safeGuildId).ilike("status", "pending"),
+    supabaseServer.from("tickets").select("*").eq("guild_id", safeGuildId).ilike("status", "resolved").order("closed_at", { ascending: false }).limit(20),
+    supabaseServer.from("security_infractions").select("*").eq("guild_id", safeGuildId).order("last_infraction_at", { ascending: false }).limit(20),
+    supabaseServer.from("suggestions").select("*").eq("guild_id", safeGuildId).order("created_at", { ascending: false }).limit(20),
   ]);
 
-  // Gráfico de Atividade de 24h
+  // Log de erros no terminal (Server Logs) para fácil depuração
+  if (serverConfigRes.error) console.error("[Supabase Error: servers]", serverConfigRes.error.message);
+  if (recentTicketsRes.error) console.error("[Supabase Error: tickets]", recentTicketsRes.error.message);
+  if (suggestionsRes.error) console.error("[Supabase Error: suggestions]", suggestionsRes.error.message);
+
+  // Processa o gráfico de atividade das últimas 24 horas
   const activityBars = new Array(16).fill(0);
   if (activityRes.data) {
     activityRes.data.forEach((ticket) => {
@@ -98,13 +61,13 @@ export async function getFullDashboardData(guildId: string): Promise<FullDashboa
   };
 
   return {
-    guildId,
-    serverConfig: serverConfigRes.data || {
-      guild_id: Number(guildId),
-      ticket_category_id: null,
-      admin_role_name: null,
-      transcript_channel_id: null,
-      language: "en",
+    guildId: safeGuildId,
+    serverConfig: {
+      guild_id: safeGuildId as any,
+      ticket_category_id: serverConfigRes.data?.ticket_category_id || null,
+      admin_role_name: serverConfigRes.data?.admin_role_name || null,
+      transcript_channel_id: serverConfigRes.data?.transcript_channel_id || null,
+      language: serverConfigRes.data?.language || "en",
     },
     securityConfig: securityConfigRes.data?.config || {},
     overview: {
@@ -113,13 +76,16 @@ export async function getFullDashboardData(guildId: string): Promise<FullDashboa
       pendingSuggestions: suggestionsRes.count || 0,
       total24h: activityRes.data?.length || 0,
       hourlyActivity: activityBars,
-      recentTickets: (recentTicketsRes.data || []).map((t) => ({
-        id: `#${String(t.channel_id).slice(-4)}`,
-        subject: t.subject || "Sem assunto",
-        status: t.status === "resolved" ? "Resolved" : t.status === "pending" ? "Pending" : "Open",
-        time: formatTimeAgo(t.opened_at),
-        variant: (t.status as "open" | "pending" | "resolved") || "open",
-      })),
+      recentTickets: (recentTicketsRes.data || []).map((t) => {
+        const statusLower = (t.status || "").toLowerCase();
+        return {
+          id: `#${String(t.channel_id).slice(-4)}`,
+          subject: t.subject || "Sem assunto",
+          status: statusLower === "resolved" ? "Resolved" : statusLower === "pending" ? "Pending" : "Open",
+          time: formatTimeAgo(t.opened_at),
+          variant: (statusLower === "resolved" ? "resolved" : statusLower === "pending" ? "pending" : "open") as any,
+        };
+      }),
     },
     transcripts: (transcriptsRes.data || []).map((t) => ({
       channel_id: String(t.channel_id),
@@ -138,7 +104,7 @@ export async function getFullDashboardData(guildId: string): Promise<FullDashboa
       message_id: String(s.message_id),
       author_id: String(s.author_id),
       suggestion_text: s.suggestion_text,
-      status: s.status,
+      status: (s.status || "pending").toLowerCase() as any,
       created_at: s.created_at,
     })),
   };
