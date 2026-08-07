@@ -56,7 +56,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
 
   useEffect(() => {
     const selectedGuildId = server?.guildId;
-    if (!selectedGuildId) {
+    if (typeof selectedGuildId !== "string" || selectedGuildId.length === 0) {
       setRoles([]);
       setCategories([]);
       setChannels([]);
@@ -64,13 +64,16 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
       return;
     }
 
+    const guildId: string = selectedGuildId;
     let cancelled = false;
+
     async function loadDiscordOptions() {
       try {
         setLoadingOptions(true);
+        const encodedGuildId = encodeURIComponent(guildId);
         const [rolesResponse, channelsResponse] = await Promise.all([
-          fetch(`/api/dashboard/roles?guildId=${encodeURIComponent(selectedGuildId)}`, { cache: "no-store", headers: { Accept: "application/json" } }),
-          fetch(`/api/dashboard/channels?guildId=${encodeURIComponent(selectedGuildId)}`, { cache: "no-store", headers: { Accept: "application/json" } }),
+          fetch(`/api/dashboard/roles?guildId=${encodedGuildId}`, { cache: "no-store", headers: { Accept: "application/json" } }),
+          fetch(`/api/dashboard/channels?guildId=${encodedGuildId}`, { cache: "no-store", headers: { Accept: "application/json" } }),
         ]);
         if (!rolesResponse.ok || !channelsResponse.ok) throw new Error("Failed to load Discord options");
         const rolesData = await rolesResponse.json();
@@ -93,7 +96,10 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
   async function persistConfiguration(showToast = false) {
     const guildId = server?.guildId;
     if (!guildId) return false;
-    if (configurationKey === lastSavedRef.current) { setSaveState("saved"); return true; }
+    if (configurationKey === lastSavedRef.current) {
+      setSaveState("saved");
+      return true;
+    }
     setSaveState("saving");
     try {
       const response = await fetch("/api/server-config", {
@@ -101,11 +107,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ ...configuration, security_config: {} }),
       });
-      if (!response.ok) {
-        let message = "The configuration could not be saved.";
-        try { const body = await response.json(); if (typeof body?.error === "string") message = body.error; } catch { /* Ignore invalid error responses. */ }
-        throw new Error(message);
-      }
+      if (!response.ok) throw new Error("The configuration could not be saved.");
       lastSavedRef.current = configurationKey;
       setSaveState("saved");
       if (showToast) onToast("Configuration saved.");
@@ -123,6 +125,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     if (!server?.guildId || configurationKey === lastSavedRef.current) return;
     const timeout = window.setTimeout(() => void persistConfiguration(), 600);
     return () => window.clearTimeout(timeout);
+    // configurationKey contains the complete editable state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configurationKey, server?.guildId]);
 
@@ -141,7 +144,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
       <section className="rounded-xl border border-zinc-800/80 bg-zinc-900/40">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800/70 px-5 py-4">
           <div>
-            <h2 id="ticket-panel-heading" className="flex items-center gap-2 text-sm font-semibold text-zinc-200"><Ticket className="size-4 text-zinc-500" aria-hidden="true" />Ticket panel</h2>
+            <h2 id="ticket-panel-heading" className="flex items-center gap-2 text-sm font-semibold text-zinc-200"><Ticket className="size-4 text-zinc-500" aria-hidden="true" /> Ticket panel</h2>
             <p className="mt-1 text-xs text-zinc-600">Changes are saved automatically and applied to the selected server.</p>
           </div>
           <div className="flex items-center gap-2 text-[11px]" aria-live="polite">
@@ -151,9 +154,9 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
           </div>
         </div>
         <div className="grid gap-5 p-5 md:grid-cols-2">
-          <div><label htmlFor="ticket-category" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Folder className="size-3.5" aria-hidden="true" />Ticket category</label><Select value={categoryId} onValueChange={(value) => value !== null && setCategoryId(value)} disabled={loadingOptions || categories.length === 0}><SelectTrigger id="ticket-category" aria-label="Ticket category" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading categories…" : "Select a category"} /></SelectTrigger><SelectContent>{categories.map((category) => <SelectItem key={category.id} value={category.id}><span className="flex items-center gap-2"><Folder className="size-3.5 text-zinc-500" aria-hidden="true" />{category.name}</span></SelectItem>)}</SelectContent></Select>{selectedCategory && <p className="mt-1.5 text-[10px] text-zinc-600">{selectedCategory.name}</p>}</div>
-          <div><label htmlFor="admin-role" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Shield className="size-3.5" aria-hidden="true" />Admin role</label><Select value={roleName} onValueChange={(value) => value !== null && setRoleName(value)} disabled={loadingOptions || roles.length === 0}><SelectTrigger id="admin-role" aria-label="Admin role" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading roles…" : "Select a role"} /></SelectTrigger><SelectContent>{roles.map((role) => <SelectItem key={role.id} value={role.name}><span className="flex items-center gap-2"><Shield className="size-3.5 text-zinc-500" aria-hidden="true" />{role.name}</span></SelectItem>)}</SelectContent></Select>{selectedRole && <p className="mt-1.5 text-[10px] text-zinc-600">{selectedRole.name}</p>}</div>
-          <div><label htmlFor="transcript-channel" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Hash className="size-3.5" aria-hidden="true" />Transcript channel</label><Select value={transcriptChannelId} onValueChange={(value) => value !== null && setTranscriptChannelId(value)} disabled={loadingOptions || channels.length === 0}><SelectTrigger id="transcript-channel" aria-label="Transcript channel" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading channels…" : "Select a channel"} /></SelectTrigger><SelectContent>{channels.map((channel) => <SelectItem key={channel.id} value={channel.id}><span className="flex items-center gap-2"><Hash className="size-3.5 text-zinc-500" aria-hidden="true" />#{channel.name}</span></SelectItem>)}</SelectContent></Select>{selectedChannel && <p className="mt-1.5 text-[10px] text-zinc-600">#{selectedChannel.name}</p>}</div>
+          <div><label htmlFor="ticket-category" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Folder className="size-3.5" aria-hidden="true" /> Ticket category</label><Select value={categoryId} onValueChange={(value) => value !== null && setCategoryId(value)} disabled={loadingOptions || categories.length === 0}><SelectTrigger id="ticket-category" aria-label="Ticket category" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading categories…" : "Select a category"} /></SelectTrigger><SelectContent>{categories.map((category) => <SelectItem key={category.id} value={category.id}><span className="flex items-center gap-2"><Folder className="size-3.5 text-zinc-500" aria-hidden="true" />{category.name}</span></SelectItem>)}</SelectContent></Select>{selectedCategory && <p className="mt-1.5 text-[10px] text-zinc-600">{selectedCategory.name}</p>}</div>
+          <div><label htmlFor="admin-role" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Shield className="size-3.5" aria-hidden="true" /> Admin role</label><Select value={roleName} onValueChange={(value) => value !== null && setRoleName(value)} disabled={loadingOptions || roles.length === 0}><SelectTrigger id="admin-role" aria-label="Admin role" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading roles…" : "Select a role"} /></SelectTrigger><SelectContent>{roles.map((role) => <SelectItem key={role.id} value={role.name}><span className="flex items-center gap-2"><Shield className="size-3.5 text-zinc-500" aria-hidden="true" />{role.name}</span></SelectItem>)}</SelectContent></Select>{selectedRole && <p className="mt-1.5 text-[10px] text-zinc-600">{selectedRole.name}</p>}</div>
+          <div><label htmlFor="transcript-channel" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Hash className="size-3.5" aria-hidden="true" /> Transcript channel</label><Select value={transcriptChannelId} onValueChange={(value) => value !== null && setTranscriptChannelId(value)} disabled={loadingOptions || channels.length === 0}><SelectTrigger id="transcript-channel" aria-label="Transcript channel" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading channels…" : "Select a channel"} /></SelectTrigger><SelectContent>{channels.map((channel) => <SelectItem key={channel.id} value={channel.id}><span className="flex items-center gap-2"><Hash className="size-3.5 text-zinc-500" aria-hidden="true" />#{channel.name}</span></SelectItem>)}</SelectContent></Select>{selectedChannel && <p className="mt-1.5 text-[10px] text-zinc-600">#{selectedChannel.name}</p>}</div>
           <div><label htmlFor="dashboard-language" className="mb-2 block text-xs text-zinc-500">Bot language</label><Select value={language} onValueChange={(value) => value !== null && setLanguage(value)}><SelectTrigger id="dashboard-language" aria-label="Bot language" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="en">English</SelectItem><SelectItem value="pt">Portuguese</SelectItem></SelectContent></Select></div>
         </div>
         <div className="flex justify-end border-t border-zinc-800/70 px-5 py-4"><button type="submit" disabled={saveState === "saving" || loadingOptions || !server?.guildId} aria-busy={saveState === "saving"} className="flex min-h-10 items-center gap-2 rounded-lg bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 disabled:cursor-not-allowed disabled:opacity-50">{saveState === "saving" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />}{saveLabel}</button></div>
