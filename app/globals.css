@@ -35,10 +35,6 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -47,7 +43,6 @@
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 
-  /* SILENTRA custom tokens */
   --color-surface-1: #09090b;
   --color-surface-2: #111113;
   --color-surface-3: #18181b;
@@ -56,7 +51,6 @@
   --color-zinc-400: #a1a1aa;
 }
 
-/* SILENTRA dark-first design */
 :root {
   --background: #09090b;
   --foreground: #fafafa;
@@ -75,7 +69,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.08);
-  --ring: rgba(255, 255, 255, 0.2);
+  --ring: rgba(255, 255, 255, 0.35);
   --chart-1: #e4e4e7;
   --chart-2: #a1a1aa;
   --chart-3: #71717a;
@@ -89,7 +83,7 @@
   --sidebar-accent: rgba(255, 255, 255, 0.06);
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: rgba(255, 255, 255, 0.2);
+  --sidebar-ring: rgba(255, 255, 255, 0.35);
 }
 
 .dark {
@@ -110,7 +104,7 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: rgba(255, 255, 255, 0.08);
   --input: rgba(255, 255, 255, 0.08);
-  --ring: rgba(255, 255, 255, 0.2);
+  --ring: rgba(255, 255, 255, 0.35);
   --chart-1: #e4e4e7;
   --chart-2: #a1a1aa;
   --chart-3: #71717a;
@@ -123,22 +117,58 @@
   --sidebar-accent: rgba(255, 255, 255, 0.06);
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: rgba(255, 255, 255, 0.2);
+  --sidebar-ring: rgba(255, 255, 255, 0.35);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  button,
+  a,
+  [role="button"],
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
-/* Glass utility */
+::selection {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(20px);
