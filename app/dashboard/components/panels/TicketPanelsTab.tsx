@@ -37,7 +37,6 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     transcript_channel_id: transcriptChannelId || null,
     language,
   };
-
   const configurationKey = JSON.stringify(configuration);
 
   useEffect(() => {
@@ -45,7 +44,6 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     setRoleName(server?.adminRoleName ?? "");
     setTranscriptChannelId(server?.transcriptChannelId ?? "");
     setLanguage(server?.language ?? "en");
-
     lastSavedRef.current = JSON.stringify({
       guild_id: server?.guildId ?? "",
       ticket_category_id: server?.ticketCategoryId ?? null,
@@ -67,22 +65,17 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     }
 
     let cancelled = false;
-
     async function loadDiscordOptions() {
       try {
         setLoadingOptions(true);
-
         const [rolesResponse, channelsResponse] = await Promise.all([
           fetch(`/api/dashboard/roles?guildId=${encodeURIComponent(selectedGuildId)}`, { cache: "no-store", headers: { Accept: "application/json" } }),
           fetch(`/api/dashboard/channels?guildId=${encodeURIComponent(selectedGuildId)}`, { cache: "no-store", headers: { Accept: "application/json" } }),
         ]);
-
         if (!rolesResponse.ok || !channelsResponse.ok) throw new Error("Failed to load Discord options");
-
         const rolesData = await rolesResponse.json();
         const channelsData = await channelsResponse.json();
         if (cancelled) return;
-
         setRoles(Array.isArray(rolesData.roles) ? rolesData.roles : []);
         setCategories(Array.isArray(channelsData.categories) ? channelsData.categories : []);
         setChannels(Array.isArray(channelsData.channels) ? channelsData.channels : []);
@@ -93,7 +86,6 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
         if (!cancelled) setLoadingOptions(false);
       }
     }
-
     void loadDiscordOptions();
     return () => { cancelled = true; };
   }, [server?.guildId, onToast]);
@@ -102,7 +94,6 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     const guildId = server?.guildId;
     if (!guildId) return false;
     if (configurationKey === lastSavedRef.current) { setSaveState("saved"); return true; }
-
     setSaveState("saving");
     try {
       const response = await fetch("/api/server-config", {
@@ -110,13 +101,11 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ ...configuration, security_config: {} }),
       });
-
       if (!response.ok) {
         let message = "The configuration could not be saved.";
         try { const body = await response.json(); if (typeof body?.error === "string") message = body.error; } catch { /* Ignore invalid error responses. */ }
         throw new Error(message);
       }
-
       lastSavedRef.current = configurationKey;
       setSaveState("saved");
       if (showToast) onToast("Configuration saved.");
@@ -134,7 +123,6 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     if (!server?.guildId || configurationKey === lastSavedRef.current) return;
     const timeout = window.setTimeout(() => void persistConfiguration(), 600);
     return () => window.clearTimeout(timeout);
-    // configurationKey is the complete, serialised editable state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configurationKey, server?.guildId]);
 
@@ -164,7 +152,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
         </div>
         <div className="grid gap-5 p-5 md:grid-cols-2">
           <div><label htmlFor="ticket-category" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Folder className="size-3.5" aria-hidden="true" />Ticket category</label><Select value={categoryId} onValueChange={(value) => value !== null && setCategoryId(value)} disabled={loadingOptions || categories.length === 0}><SelectTrigger id="ticket-category" aria-label="Ticket category" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading categories…" : "Select a category"} /></SelectTrigger><SelectContent>{categories.map((category) => <SelectItem key={category.id} value={category.id}><span className="flex items-center gap-2"><Folder className="size-3.5 text-zinc-500" aria-hidden="true" />{category.name}</span></SelectItem>)}</SelectContent></Select>{selectedCategory && <p className="mt-1.5 text-[10px] text-zinc-600">{selectedCategory.name}</p>}</div>
-          <div><label htmlFor="admin-role" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Shield className="size-3.5" aria-hidden="true" />Admin role</label><Select value={roleName} onValueChange={(value) => value !== null && setRoleName(value)} disabled={loadingOptions || roles.length === 0}><SelectTrigger id="admin-role" aria-label="Admin role" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading roles…" : "Select a role"} /></SelectTrigger><SelectContent>{roles.map((role) => <SelectItem key={role.id} value={role.id}><span className="flex items-center gap-2"><Shield className="size-3.5 text-zinc-500" aria-hidden="true" />{role.name}</span></SelectItem>)}</SelectContent></Select>{selectedRole && <p className="mt-1.5 text-[10px] text-zinc-600">{selectedRole.name}</p>}</div>
+          <div><label htmlFor="admin-role" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Shield className="size-3.5" aria-hidden="true" />Admin role</label><Select value={roleName} onValueChange={(value) => value !== null && setRoleName(value)} disabled={loadingOptions || roles.length === 0}><SelectTrigger id="admin-role" aria-label="Admin role" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading roles…" : "Select a role"} /></SelectTrigger><SelectContent>{roles.map((role) => <SelectItem key={role.id} value={role.name}><span className="flex items-center gap-2"><Shield className="size-3.5 text-zinc-500" aria-hidden="true" />{role.name}</span></SelectItem>)}</SelectContent></Select>{selectedRole && <p className="mt-1.5 text-[10px] text-zinc-600">{selectedRole.name}</p>}</div>
           <div><label htmlFor="transcript-channel" className="mb-2 flex items-center gap-2 text-xs text-zinc-500"><Hash className="size-3.5" aria-hidden="true" />Transcript channel</label><Select value={transcriptChannelId} onValueChange={(value) => value !== null && setTranscriptChannelId(value)} disabled={loadingOptions || channels.length === 0}><SelectTrigger id="transcript-channel" aria-label="Transcript channel" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue placeholder={loadingOptions ? "Loading channels…" : "Select a channel"} /></SelectTrigger><SelectContent>{channels.map((channel) => <SelectItem key={channel.id} value={channel.id}><span className="flex items-center gap-2"><Hash className="size-3.5 text-zinc-500" aria-hidden="true" />#{channel.name}</span></SelectItem>)}</SelectContent></Select>{selectedChannel && <p className="mt-1.5 text-[10px] text-zinc-600">#{selectedChannel.name}</p>}</div>
           <div><label htmlFor="dashboard-language" className="mb-2 block text-xs text-zinc-500">Bot language</label><Select value={language} onValueChange={(value) => value !== null && setLanguage(value)}><SelectTrigger id="dashboard-language" aria-label="Bot language" className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200 focus-visible:ring-2 focus-visible:ring-zinc-400/70"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="en">English</SelectItem><SelectItem value="pt">Portuguese</SelectItem></SelectContent></Select></div>
         </div>
