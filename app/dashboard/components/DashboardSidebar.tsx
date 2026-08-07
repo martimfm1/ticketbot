@@ -66,7 +66,11 @@ export function DashboardSidebar({
         </div>
         <Select
           value={guildId}
-          onValueChange={onGuildChange}
+          onValueChange={(value) => {
+            if (value !== null) {
+              onGuildChange(value);
+            }
+          }}
           disabled={guilds.length === 0}
         >
           <SelectTrigger className="h-12 w-full border-zinc-800 bg-zinc-950 px-3 shadow-none hover:bg-zinc-900 focus:ring-0">

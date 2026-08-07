@@ -131,23 +131,24 @@ export function TicketPanelsTab({
       try {
         setLoadingOptions(true);
 
+        const guildId = server?.guildId;
+        if (!guildId) {
+          return;
+        }
+
         const [
           rolesResponse,
           channelsResponse,
         ] = await Promise.all([
           fetch(
-            `/api/dashboard/roles?guildId=${encodeURIComponent(
-              server.guildId,
-            )}`,
+            `/api/dashboard/roles?guildId=${encodeURIComponent(guildId)}`,
             {
               cache: "no-store",
             },
           ),
 
           fetch(
-            `/api/dashboard/channels?guildId=${encodeURIComponent(
-              server.guildId,
-            )}`,
+            `/api/dashboard/channels?guildId=${encodeURIComponent(guildId)}`,
             {
               cache: "no-store",
             },
@@ -336,7 +337,11 @@ export function TicketPanelsTab({
 
             <Select
               value={categoryId}
-              onValueChange={setCategoryId}
+              onValueChange={(value) => {
+                if (value !== null) {
+                  setCategoryId(value);
+                }
+              }}
               disabled={
                 loadingOptions ||
                 categories.length === 0
@@ -386,7 +391,11 @@ export function TicketPanelsTab({
 
             <Select
               value={roleName}
-              onValueChange={setRoleName}
+              onValueChange={(value) => {
+                if (value !== null) {
+                  setRoleName(value);
+                }
+              }}
               disabled={
                 loadingOptions ||
                 roles.length === 0
@@ -434,9 +443,11 @@ export function TicketPanelsTab({
 
             <Select
               value={transcriptChannelId}
-              onValueChange={
-                setTranscriptChannelId
-              }
+              onValueChange={(value) => {
+                if (value !== null) {
+                  setTranscriptChannelId(value);
+                }
+              }}
               disabled={
                 loadingOptions ||
                 channels.length === 0
@@ -485,7 +496,11 @@ export function TicketPanelsTab({
 
             <Select
               value={language}
-              onValueChange={setLanguage}
+              onValueChange={(value) => {
+                if (value !== null) {
+                  setLanguage(value);
+                }
+              }}
             >
               <SelectTrigger className="w-full border-zinc-800 bg-zinc-950 text-xs text-zinc-200">
                 <SelectValue />
