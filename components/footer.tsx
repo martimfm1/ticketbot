@@ -86,7 +86,7 @@ export function Footer() {
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} SILENTRA. All rights reserved.
+            &copy; {new Date().getFullYear()} <a href="https://silentra.me" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">SILENTRA</a>. All rights reserved.
           </p>
           <p className="text-xs text-muted-foreground">
             Open source under the{" "}

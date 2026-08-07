@@ -49,54 +49,61 @@ const testimonials = [
 
 export function Testimonials() {
   return (
-    <section
-      className="py-24 px-4 sm:px-6 lg:px-8"
-      aria-labelledby="testimonials-heading"
-    >
-      <div className="max-w-7xl mx-auto">
+    <section>
+      <div className="mx-auto max-w-7xl px-6">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5 }}
-          className="text-center mb-16"
+          className="mb-16 text-center"
         >
-          <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase mb-4">
+          <p className="text-sm font-medium text-muted-foreground">
             What people say
           </p>
-          <h2
-            id="testimonials-heading"
-            className="text-3xl sm:text-4xl font-semibold text-foreground tracking-tight"
-          >
+
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
             Trusted by real communities.
           </h2>
         </motion.div>
 
         {/* Grid */}
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-4 space-y-4">
-          {testimonials.map((t, i) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {testimonials.map((testimonial, index) => (
             <motion.blockquote
-              key={t.name}
+              key={testimonial.name}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.07 }}
-              className="glass rounded-2xl p-6 break-inside-avoid hover:bg-white/06 transition-colors duration-200"
+              transition={{
+                duration: 0.4,
+                delay: index * 0.07,
+              }}
+              className="glass flex h-full min-h-[220px] flex-col rounded-2xl p-6 transition-colors duration-200 hover:bg-white/[0.06]"
             >
-              <p className="text-sm text-muted-foreground leading-relaxed mb-5">
-                &ldquo;{t.quote}&rdquo;
+              {/* Quote */}
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                &ldquo;{testimonial.quote}&rdquo;
               </p>
-              <footer className="flex items-center gap-3">
+
+              {/* Author */}
+              <footer className="mt-auto flex items-center gap-3 pt-8">
                 <div
-                  className="size-8 rounded-full bg-zinc-700 border border-white/08 flex items-center justify-center text-xs font-semibold text-zinc-300 shrink-0"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full border border-white/8 bg-zinc-700 text-xs font-semibold text-zinc-300"
                   aria-hidden="true"
                 >
-                  {t.initials}
+                  {testimonial.initials}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">{t.name}</p>
-                  <p className="text-xs text-muted-foreground">{t.role}</p>
+
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">
+                    {testimonial.name}
+                  </p>
+
+                  <p className="text-xs text-muted-foreground">
+                    {testimonial.role}
+                  </p>
                 </div>
               </footer>
             </motion.blockquote>

@@ -1,60 +1,53 @@
-export type TicketVariant = "open" | "pending" | "resolved";
-
-export interface TicketSummary {
-  id: string;
-  subject: string;
-  status: string;
-  time: string;
-  variant: TicketVariant;
-}
-
-export interface TranscriptItem {
-  channel_id: string;
-  user_id: string;
-  subject: string;
-  opened_at: string;
-  closed_at: string;
-}
-
-export interface InfractionItem {
-  user_id: string;
-  strikes: number;
-  last_infraction_type: string;
-  last_infraction_at: number;
-}
-
-export interface SuggestionItem {
-  message_id: string;
-  author_id: string;
-  suggestion_text: string;
-  status: "pending" | "approved" | "rejected";
-  created_at: string;
-}
-
-export interface ServerConfig {
-  guild_id: number;
-  ticket_category_id: number | null;
-  admin_role_name: string | null;
-  transcript_channel_id: number | null;
+export interface DashboardServer {
+  guildId: string;
+  ticketCategoryId: string | null;
+  adminRoleName: string | null;
+  transcriptChannelId: string | null;
   language: string;
 }
 
-export interface FullDashboardData {
+export interface DashboardTicket {
+  channelId: string;
+  guildId: string | null;
+  userId: string;
+  subject: string | null;
+  status: string;
+  openedAt: string;
+  closedAt: string | null;
+  claimedBy: string | null;
+}
+
+export interface DashboardSuggestion {
+  messageId: string;
   guildId: string;
-  serverConfig: ServerConfig;
-  securityConfig: {
-    anti_spam?: boolean;
-    max_tickets_per_user?: number;
+  authorId: string;
+  suggestionText: string;
+  status: string;
+  createdAt: string;
+  votes: {
+    up: number;
+    down: number;
   };
-  overview: {
-    openTickets: number;
-    resolvedToday: number;
-    pendingSuggestions: number;
-    total24h: number;
-    hourlyActivity: number[];
-    recentTickets: TicketSummary[];
+}
+
+export interface DashboardMetrics {
+  servers: {
+    total: number;
+    current: DashboardServer | null;
   };
-  transcripts: TranscriptItem[];
-  infractions: InfractionItem[];
-  suggestions: SuggestionItem[];
+
+  tickets: {
+    total: number;
+    open: number;
+    closed: number;
+    recent: DashboardTicket[];
+  };
+
+  suggestions: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    recent: DashboardSuggestion[];
+  };
 }

@@ -16,7 +16,7 @@ export default function BackButton({ fallback = "/" }: { fallback?: string }) {
       }}
       aria-label="Voltar"
       title="Voltar"
-      className="inline-flex items-center gap-2 px-4 py-3 sm:px-3 sm:py-1.5 rounded-md text-sm bg-zinc-900/60 hover:bg-zinc-900/40 transition-colors shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
+      className="inline-flex items-center cursor-pointer gap-2 px-4 py-3 sm:px-3 sm:py-1.5 rounded-md text-sm bg-zinc-900/60 hover:bg-zinc-900/40 transition-colors shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400"
     >
       <svg
         aria-hidden
@@ -28,7 +28,7 @@ export default function BackButton({ fallback = "/" }: { fallback?: string }) {
       >
         <path d="M12 16L6 10l6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="font-medium">Voltar</span>
+      <span className="font-medium">Back</span>
     </button>
   );
 }
