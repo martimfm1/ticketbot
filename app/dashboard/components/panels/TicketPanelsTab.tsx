@@ -63,7 +63,9 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
   ]);
 
   useEffect(() => {
-    if (!server?.guildId) {
+    const guildId = server?.guildId;
+
+    if (!guildId) {
       setRoles([]);
       setCategories([]);
       setChannels([]);
@@ -76,7 +78,6 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     async function loadDiscordOptions() {
       try {
         setLoadingOptions(true);
-        const guildId = server.guildId;
 
         const [rolesResponse, channelsResponse] = await Promise.all([
           fetch(`/api/dashboard/roles?guildId=${encodeURIComponent(guildId)}`, {
