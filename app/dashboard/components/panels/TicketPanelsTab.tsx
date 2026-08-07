@@ -1,7 +1,7 @@
 "use client";
 
-import { Save, Ticket, Loader2, Hash, Shield, Folder } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Hash, Loader2, Save, Shield, Ticket, Folder, CheckCircle2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { DashboardMetrics } from "@/types/dashboard";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -15,6 +15,8 @@ interface DiscordRole { id: string; name: string; color: number; }
 interface DiscordCategory { id: string; name: string; }
 interface DiscordChannel { id: string; name: string; type: number; parentId: string | null; }
 
+type SaveState = "idle" | "saving" | "saved" | "error";
+
 export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps) {
   const server = data.servers.current;
   const [categoryId, setCategoryId] = useState(server?.ticketCategoryId ?? "");
@@ -25,14 +27,40 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
   const [categories, setCategories] = useState<DiscordCategory[]>([]);
   const [channels, setChannels] = useState<DiscordChannel[]>([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const lastSavedRef = useRef("");
+
+  const configuration = {
+    guild_id: server?.guildId ?? "",
+    ticket_category_id: categoryId || null,
+    admin_role_name: roleName || null,
+    transcript_channel_id: transcriptChannelId || null,
+    language,
+  };
+
+  const configurationKey = JSON.stringify(configuration);
 
   useEffect(() => {
     setCategoryId(server?.ticketCategoryId ?? "");
     setRoleName(server?.adminRoleName ?? "");
     setTranscriptChannelId(server?.transcriptChannelId ?? "");
     setLanguage(server?.language ?? "en");
-  }, [server?.guildId]);
+
+    lastSavedRef.current = JSON.stringify({
+      guild_id: server?.guildId ?? "",
+      ticket_category_id: server?.ticketCategoryId ?? null,
+      admin_role_name: server?.adminRoleName ?? null,
+      transcript_channel_id: server?.transcriptChannelId ?? null,
+      language: server?.language ?? "en",
+    });
+    setSaveState("idle");
+  }, [
+    server?.guildId,
+    server?.ticketCategoryId,
+    server?.adminRoleName,
+    server?.transcriptChannelId,
+    server?.language,
+  ]);
 
   useEffect(() => {
     if (!server?.guildId) {
@@ -48,15 +76,22 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     async function loadDiscordOptions() {
       try {
         setLoadingOptions(true);
-        const guildId = server?.guildId;
-        if (!guildId) return;
+        const guildId = server.guildId;
 
         const [rolesResponse, channelsResponse] = await Promise.all([
-          fetch(`/api/dashboard/roles?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
-          fetch(`/api/dashboard/channels?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
+          fetch(`/api/dashboard/roles?guildId=${encodeURIComponent(guildId)}`, {
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+          }),
+          fetch(`/api/dashboard/channels?guildId=${encodeURIComponent(guildId)}`, {
+            cache: "no-store",
+            headers: { Accept: "application/json" },
+          }),
         ]);
 
-        if (!rolesResponse.ok || !channelsResponse.ok) throw new Error("Failed to load Discord options");
+        if (!rolesResponse.ok || !channelsResponse.ok) {
+          throw new Error("Failed to load Discord options");
+        }
 
         const rolesData = await rolesResponse.json();
         const channelsData = await channelsResponse.json();
@@ -79,54 +114,110 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     };
   }, [server?.guildId, onToast]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!server?.guildId) {
-      onToast("No server is selected.", "error");
-      return;
+  async function persistConfiguration(showToast = false) {
+    if (!server?.guildId || !configurationKey) {
+      return false;
     }
 
-    setSaving(true);
+    if (configurationKey === lastSavedRef.current) {
+      setSaveState("saved");
+      return true;
+    }
+
+    setSaveState("saving");
 
     try {
       const response = await fetch("/api/server-config", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
         body: JSON.stringify({
-          guild_id: server.guildId,
-          ticket_category_id: categoryId || null,
-          admin_role_name: roleName || null,
-          transcript_channel_id: transcriptChannelId || null,
-          language,
+          ...configuration,
           security_config: {},
         }),
       });
 
-      if (!response.ok) throw new Error(`Failed to save configuration: ${response.status}`);
+      if (!response.ok) {
+        let message = "The configuration could not be saved.";
+        try {
+          const body = await response.json();
+          if (typeof body?.error === "string") message = body.error;
+        } catch {
+          // Ignore invalid error responses.
+        }
+        throw new Error(message);
+      }
+
+      lastSavedRef.current = configurationKey;
+      setSaveState("saved");
+
+      if (showToast) {
+        onToast("Configuration saved.");
+      }
+
       await onSaved();
-      onToast("Configuration saved.");
+      return true;
     } catch (error) {
       console.error("[TicketPanelsTab] Save failed", error);
-      onToast("The configuration could not be saved.", "error");
-    } finally {
-      setSaving(false);
+      setSaveState("error");
+      onToast(error instanceof Error ? error.message : "The configuration could not be saved.", "error");
+      return false;
     }
+  }
+
+  useEffect(() => {
+    if (!server?.guildId || configurationKey === lastSavedRef.current) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      void persistConfiguration();
+    }, 600);
+
+    return () => window.clearTimeout(timeout);
+    // configurationKey is the complete, serialised editable state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [configurationKey, server?.guildId]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await persistConfiguration(true);
   }
 
   const selectedRole = roles.find((role) => role.name === roleName);
   const selectedCategory = categories.find((category) => category.id === categoryId);
   const selectedChannel = channels.find((channel) => channel.id === transcriptChannelId);
 
+  const saveLabel =
+    saveState === "saving"
+      ? "Saving…"
+      : saveState === "saved"
+        ? "Saved"
+        : saveState === "error"
+          ? "Retry save"
+          : "Save now";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6" aria-labelledby="ticket-panel-heading">
       <section className="rounded-xl border border-zinc-800/80 bg-zinc-900/40">
-        <div className="border-b border-zinc-800/70 px-5 py-4">
-          <h2 id="ticket-panel-heading" className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-            <Ticket className="size-4 text-zinc-500" aria-hidden="true" />
-            Ticket panel
-          </h2>
-          <p className="mt-1 text-xs text-zinc-600">Define where and how support tickets are created.</p>
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800/70 px-5 py-4">
+          <div>
+            <h2 id="ticket-panel-heading" className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
+              <Ticket className="size-4 text-zinc-500" aria-hidden="true" />
+              Ticket panel
+            </h2>
+            <p className="mt-1 text-xs text-zinc-600">Changes are saved automatically and applied to the selected server.</p>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px]" aria-live="polite">
+            {saveState === "saving" && <Loader2 className="size-3.5 animate-spin text-zinc-500" aria-hidden="true" />}
+            {saveState === "saved" && <CheckCircle2 className="size-3.5 text-emerald-500" aria-hidden="true" />}
+            <span className={saveState === "error" ? "text-red-400" : "text-zinc-500"}>
+              {saveState === "saving" ? "Saving changes…" : saveState === "saved" ? "All changes saved" : saveState === "error" ? "Save failed" : "Ready"}
+            </span>
+          </div>
         </div>
 
         <div className="grid gap-5 p-5 md:grid-cols-2">
@@ -204,12 +295,12 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
         <div className="flex justify-end border-t border-zinc-800/70 px-5 py-4">
           <button
             type="submit"
-            disabled={saving || loadingOptions || !server?.guildId}
-            aria-busy={saving}
+            disabled={saveState === "saving" || loadingOptions || !server?.guildId}
+            aria-busy={saveState === "saving"}
             className="flex min-h-10 items-center gap-2 rounded-lg bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />}
-            {saving ? "Saving…" : "Save changes"}
+            {saveState === "saving" ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Save className="size-3.5" aria-hidden="true" />}
+            {saveLabel}
           </button>
         </div>
       </section>
