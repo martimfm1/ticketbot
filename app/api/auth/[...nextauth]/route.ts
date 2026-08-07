@@ -6,7 +6,6 @@ export const authOptions: AuthOptions = {
     DiscordProvider({
       clientId: process.env.DISCORD_CLIENT_ID!,
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
-
       authorization: {
         params: {
           scope: "identify guilds",
@@ -14,6 +13,10 @@ export const authOptions: AuthOptions = {
       },
     }),
   ],
+
+  pages: {
+    signIn: "/login",
+  },
 
   callbacks: {
     async jwt({ token, account }) {
@@ -30,9 +33,6 @@ export const authOptions: AuthOptions = {
         session.user.id =
           (token.discordId as string) ??
           (token.sub as string);
-
-        session.user.accessToken =
-          token.accessToken as string | undefined;
       }
 
       return session;
@@ -41,6 +41,20 @@ export const authOptions: AuthOptions = {
 
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60,
+    updateAge: 60 * 60,
+  },
+
+  cookies: {
+    sessionToken: {
+      name: "__Secure-next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
   },
 };
 
