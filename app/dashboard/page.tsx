@@ -2,12 +2,30 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 
+import type { DashboardMetrics } from "@/types/dashboard";
 import DashboardView from "./DashboardView";
-import { getDashboardMetrics } from "@/lib/dashboard/dashboard.service";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_GUILD_ID = "000000000000000000";
+const EMPTY_DASHBOARD: DashboardMetrics = {
+  servers: {
+    total: 0,
+    current: null,
+  },
+  tickets: {
+    total: 0,
+    open: 0,
+    closed: 0,
+    recent: [],
+  },
+  suggestions: {
+    total: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    recent: [],
+  },
+};
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
@@ -18,16 +36,9 @@ export default async function DashboardPage() {
 
   const user = {
     id: session.user.id,
-    name: session.user.name ?? "Utilizador",
+    name: session.user.name ?? "User",
     image: session.user.image ?? null,
   };
-  try {
-    const initialData = await getDashboardMetrics(DEFAULT_GUILD_ID);
 
-    return <DashboardView user={user} initialData={initialData} />;
-  } catch (error) {
-    console.error("[DashboardPage] Failed to load dashboard", error);
-
-    redirect("/dashboard?error=failed-to-load");
-  }
+  return <DashboardView user={user} initialData={EMPTY_DASHBOARD} />;
 }
