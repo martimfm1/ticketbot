@@ -60,7 +60,7 @@ export function DashboardSidebar({
 
   return (
     <aside
-      className="flex w-64 shrink-0 flex-col border-r border-zinc-800/80"
+      className="sticky top-0 z-40 flex h-screen w-64 shrink-0 flex-col border-r border-zinc-800/80 bg-black lg:fixed lg:inset-y-0 lg:left-0"
       aria-label="Dashboard sidebar"
     >
       <div className="border-b border-zinc-800/80 p-4">
@@ -130,7 +130,7 @@ export function DashboardSidebar({
         </Select>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
         <p className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wider text-zinc-600">Dashboard</p>
         <nav className="space-y-1" aria-label="Dashboard sections">
           {dashboardNavigation.map((item) => {
