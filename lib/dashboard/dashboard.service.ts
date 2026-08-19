@@ -48,7 +48,6 @@ export async function getDashboardMetrics(guildId: string): Promise<DashboardMet
   if (suggestionsError) throw new Error("Failed to fetch suggestions");
 
   const allTickets = tickets ?? [];
-
   const openTickets = allTickets.filter((ticket) => ticket.status?.toLowerCase() === "open").length;
   const pendingTickets = allTickets.filter((ticket) => ticket.status?.toLowerCase() === "pending").length;
   const closedTickets = allTickets.filter((ticket) => ticket.status?.toLowerCase() === "closed").length;
@@ -109,7 +108,9 @@ export async function getDashboardMetrics(guildId: string): Promise<DashboardMet
 
   const currentServer: DashboardServer | null = server
     ? {
-        guildId: toId(server.guild_id)!,
+        // Always preserve the exact Snowflake supplied by Discord/URL.
+        // Do not round it through a Postgres bigint -> JS number conversion.
+        guildId,
         ticketCategoryId: toId(server.ticket_category_id),
         adminRoleName: server.admin_role_name,
         adminRoleId: toId(server.admin_role_id),
