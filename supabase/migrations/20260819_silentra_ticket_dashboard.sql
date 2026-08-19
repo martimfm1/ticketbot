@@ -78,18 +78,22 @@ do $$
 begin
   begin
     alter publication supabase_realtime add table public.tickets;
-  exception when duplicate_object then null;
-  exception when undefined_object then null;
+  exception
+    when duplicate_object or undefined_object then null;
   end;
+
   begin
     alter publication supabase_realtime add table public.ticket_messages;
-  exception when duplicate_object then null;
-  exception when undefined_object then null;
+  exception
+    when duplicate_object or undefined_object then null;
   end;
+
   begin
     alter publication supabase_realtime add table public.ticket_events;
-  exception when duplicate_object then null;
-  exception when undefined_object then null;
+  exception
+    when duplicate_object or undefined_object then null;
   end;
 end;
 $$;
+
+notify pgrst, 'reload schema';
