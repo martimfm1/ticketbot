@@ -10,7 +10,7 @@ const SNOWFLAKE = /^\d{17,20}$/;
 const ALLOWED_STATUS = new Set(["open", "pending", "closed"]);
 const ALLOWED_PRIORITY = new Set(["low", "normal", "high", "urgent"]);
 
-function normalizeTicket(ticket: any) {
+function normalizeTicket(ticket: Record<string, any>) {
   return {
     channelId: String(ticket.channel_id),
     guildId: ticket.guild_id == null ? null : String(ticket.guild_id),
@@ -38,12 +38,17 @@ export async function GET(request: Request) {
     const priority = searchParams.get("priority")?.toLowerCase();
     const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 100), 1), 100);
 
+    if (!SNOWFLAKE.test(guildId)) {
+      return NextResponse.json({ error: "Invalid guildId" }, { status: 400 });
+    }
+
     await requireTicketAccess(guildId);
-    if (!SNOWFLAKE.test(guildId)) return NextResponse.json({ error: "Invalid guildId" }, { status: 400 });
 
     let query = supabaseServer
       .from("tickets")
-      .select("channel_id, guild_id, user_id, subject, status, opened_at, closed_at, claimed_by, priority, assigned_to, claimed_at, last_activity_at, closed_by, resolution_note, updated_at")
+      .select(
+        "channel_id, guild_id, user_id, subject, status, opened_at, closed_at, claimed_by, priority, assigned_to, claimed_at, last_activity_at, closed_by, resolution_note, updated_at",
+      )
       .eq("guild_id", guildId)
       .order("last_activity_at", { ascending: false, nullsFirst: false })
       .order("opened_at", { ascending: false })
@@ -55,7 +60,15 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ tickets: (data ?? []).map(normalizeTicket) }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json(
+      { tickets: (data ?? []).map(normalizeTicket) },
+      {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "X-SILENTRA-Ticket-API": "v1",
+        },
+      },
+    );
   } catch (error) {
     return jsonError(error);
   }
@@ -67,12 +80,12 @@ export async function PATCH(request: Request) {
     const guildId = String(body.guildId ?? "");
     const channelId = String(body.channelId ?? "");
     const action = String(body.action ?? "").toLowerCase();
-    const access = await requireTicketAccess(guildId);
 
     if (!SNOWFLAKE.test(guildId) || !SNOWFLAKE.test(channelId)) {
       return NextResponse.json({ error: "Invalid ticket identifier" }, { status: 400 });
     }
 
+    const access = await requireTicketAccess(guildId);
     const payload: Record<string, unknown> = {};
     let eventPayload: Record<string, unknown> = {};
 
@@ -103,14 +116,18 @@ export async function PATCH(request: Request) {
         break;
       case "priority": {
         const value = String(body.priority ?? "normal").toLowerCase();
-        if (!ALLOWED_PRIORITY.has(value)) return NextResponse.json({ error: "Invalid priority" }, { status: 400 });
+        if (!ALLOWED_PRIORITY.has(value)) {
+          return NextResponse.json({ error: "Invalid priority" }, { status: 400 });
+        }
         payload.priority = value;
         eventPayload = { priority: value };
         break;
       }
       case "status": {
         const value = String(body.status ?? "open").toLowerCase();
-        if (!ALLOWED_STATUS.has(value)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+        if (!ALLOWED_STATUS.has(value)) {
+          return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+        }
         payload.status = value;
         if (value === "closed") {
           payload.closed_at = new Date().toISOString();
@@ -120,9 +137,13 @@ export async function PATCH(request: Request) {
         break;
       }
       case "assign": {
-        if (!access.canManage) return NextResponse.json({ error: "Only server managers can assign tickets" }, { status: 403 });
+        if (!access.canManage) {
+          return NextResponse.json({ error: "Only server managers can assign tickets" }, { status: 403 });
+        }
         const assignedTo = body.userId ? String(body.userId) : null;
-        if (assignedTo && !SNOWFLAKE.test(assignedTo)) return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
+        if (assignedTo && !SNOWFLAKE.test(assignedTo)) {
+          return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
+        }
         payload.assigned_to = assignedTo ? Number(assignedTo) : null;
         payload.claimed_by = assignedTo ? Number(assignedTo) : null;
         payload.claimed_at = assignedTo ? new Date().toISOString() : null;
@@ -142,7 +163,12 @@ export async function PATCH(request: Request) {
       .maybeSingle();
 
     if (ticketError) throw ticketError;
-    if (!ticket) return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+    if (!ticket) {
+      return NextResponse.json(
+        { error: "Ticket not found", guildId, channelId },
+        { status: 404 },
+      );
+    }
 
     const { error: eventError } = await supabaseServer.from("ticket_events").insert({
       guild_id: Number(guildId),
@@ -155,7 +181,10 @@ export async function PATCH(request: Request) {
 
     if (eventError) throw eventError;
 
-    return NextResponse.json({ success: true, ticket: normalizeTicket(ticket) });
+    return NextResponse.json(
+      { success: true, ticket: normalizeTicket(ticket) },
+      { headers: { "X-SILENTRA-Ticket-API": "v1" } },
+    );
   } catch (error) {
     return jsonError(error);
   }
