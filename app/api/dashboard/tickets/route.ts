@@ -36,7 +36,10 @@ export async function GET(request: Request) {
     const guildId = searchParams.get("guildId") ?? "";
     const status = searchParams.get("status")?.toLowerCase();
     const priority = searchParams.get("priority")?.toLowerCase();
-    const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 100), 1), 100);
+    const requestedLimit = Number(searchParams.get("limit") ?? 100);
+    const limit = Number.isFinite(requestedLimit)
+      ? Math.min(Math.max(requestedLimit, 1), 100)
+      : 100;
 
     if (!SNOWFLAKE.test(guildId)) {
       return NextResponse.json({ error: "Invalid guildId" }, { status: 400 });
@@ -91,11 +94,11 @@ export async function PATCH(request: Request) {
 
     switch (action) {
       case "claim":
-        payload.claimed_by = Number(access.userId);
-        payload.assigned_to = Number(access.userId);
+        payload.claimed_by = access.userId;
+        payload.assigned_to = access.userId;
         payload.claimed_at = new Date().toISOString();
         payload.status = "open";
-        eventPayload = { assigned_to: Number(access.userId) };
+        eventPayload = { assigned_to: access.userId };
         break;
       case "unclaim":
         payload.claimed_by = null;
@@ -105,7 +108,7 @@ export async function PATCH(request: Request) {
       case "close":
         payload.status = "closed";
         payload.closed_at = new Date().toISOString();
-        payload.closed_by = Number(access.userId);
+        payload.closed_by = access.userId;
         payload.resolution_note = body.note ? String(body.note).slice(0, 1000) : null;
         eventPayload = { note: payload.resolution_note };
         break;
@@ -131,7 +134,7 @@ export async function PATCH(request: Request) {
         payload.status = value;
         if (value === "closed") {
           payload.closed_at = new Date().toISOString();
-          payload.closed_by = Number(access.userId);
+          payload.closed_by = access.userId;
         }
         eventPayload = { status: value };
         break;
@@ -144,10 +147,10 @@ export async function PATCH(request: Request) {
         if (assignedTo && !SNOWFLAKE.test(assignedTo)) {
           return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
         }
-        payload.assigned_to = assignedTo ? Number(assignedTo) : null;
-        payload.claimed_by = assignedTo ? Number(assignedTo) : null;
+        payload.assigned_to = assignedTo;
+        payload.claimed_by = assignedTo;
         payload.claimed_at = assignedTo ? new Date().toISOString() : null;
-        eventPayload = { assigned_to: payload.assigned_to };
+        eventPayload = { assigned_to: assignedTo };
         break;
       }
       default:
@@ -158,7 +161,7 @@ export async function PATCH(request: Request) {
       .from("tickets")
       .update(payload)
       .eq("guild_id", guildId)
-      .eq("channel_id", Number(channelId))
+      .eq("channel_id", channelId)
       .select("*")
       .maybeSingle();
 
@@ -171,10 +174,10 @@ export async function PATCH(request: Request) {
     }
 
     const { error: eventError } = await supabaseServer.from("ticket_events").insert({
-      guild_id: Number(guildId),
-      channel_id: Number(channelId),
+      guild_id: guildId,
+      channel_id: channelId,
       event_type: `dashboard.${action}`,
-      actor_id: Number(access.userId),
+      actor_id: access.userId,
       payload: eventPayload,
       status: "pending",
     });
