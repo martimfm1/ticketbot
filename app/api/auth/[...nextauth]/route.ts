@@ -65,9 +65,6 @@ export const authOptions: AuthOptions = {
         provider: account?.provider ?? null,
       });
     },
-    async error(message) {
-      console.error("[auth] NextAuth error", message);
-    },
   },
 
   session: {
