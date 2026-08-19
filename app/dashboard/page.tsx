@@ -7,12 +7,13 @@ import { getDashboardMetrics } from "@/lib/dashboard/dashboard.service";
 
 export const dynamic = "force-dynamic";
 
-const DEFAULT_GUILD_ID = "000000000000000000";
+const EMPTY_GUILD_ID = "000000000000000000";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.id) {
+    console.warn("[DashboardPage] No authenticated session; redirecting to login");
     redirect("/login");
   }
 
@@ -21,13 +22,46 @@ export default async function DashboardPage() {
     name: session.user.name ?? "Utilizador",
     image: session.user.image ?? null,
   };
+
+  let initialData;
+
   try {
-    const initialData = await getDashboardMetrics(DEFAULT_GUILD_ID);
-
-    return <DashboardView user={user} initialData={initialData} />;
+    initialData = await getDashboardMetrics(EMPTY_GUILD_ID);
   } catch (error) {
-    console.error("[DashboardPage] Failed to load dashboard", error);
+    // Do not redirect back to /dashboard here: that creates a 307 loop
+    // and hides the real data-loading failure from the user and logs.
+    console.error("[DashboardPage] Failed to load initial dashboard data", {
+      error,
+      userId: session.user.id,
+    });
 
-    redirect("/dashboard?error=failed-to-load");
+    initialData = {
+      servers: {
+        total: 0,
+        current: null,
+      },
+      tickets: {
+        total: 0,
+        open: 0,
+        pending: 0,
+        closed: 0,
+        priorities: {
+          low: 0,
+          normal: 0,
+          high: 0,
+          urgent: 0,
+        },
+        recent: [],
+      },
+      suggestions: {
+        total: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        recent: [],
+      },
+    };
   }
+
+  return <DashboardView user={user} initialData={initialData} />;
 }

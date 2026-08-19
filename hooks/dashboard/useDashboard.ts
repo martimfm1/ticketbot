@@ -37,19 +37,8 @@ export function useDashboard({
   const [error, setError] =
     useState<string | null>(null);
 
-  /*
-   * Prevents the initial server-rendered data from
-   * being overwritten unnecessarily.
-   */
-  const initialGuildIdRef =
-    useRef(guildId);
-
-  /*
-   * Keep track of the latest request so an old
-   * response cannot overwrite a newer guild.
-   */
-  const requestIdRef =
-    useRef(0);
+  const initialGuildIdRef = useRef(guildId);
+  const requestIdRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!guildId) {
@@ -57,8 +46,7 @@ export function useDashboard({
       return;
     }
 
-    const requestId =
-      ++requestIdRef.current;
+    const requestId = ++requestIdRef.current;
 
     setLoading(true);
     setError(null);
@@ -78,47 +66,30 @@ export function useDashboard({
       );
 
       if (!response.ok) {
-        let message =
-          "Failed to load dashboard data";
+        let message = "Failed to load dashboard data";
 
         try {
           const body = await response.json();
-
-          if (
-            body &&
-            typeof body.error === "string"
-          ) {
+          if (body && typeof body.error === "string") {
             message = body.error;
           }
         } catch {
           // Ignore invalid JSON response.
         }
 
-        throw new Error(
-          `${message} (${response.status})`,
-        );
+        throw new Error(`${message} (${response.status})`);
       }
 
       const nextData =
         (await response.json()) as DashboardMetrics;
 
-      /*
-       * Ignore stale responses.
-       */
-      if (
-        requestId !== requestIdRef.current
-      ) {
+      if (requestId !== requestIdRef.current) {
         return;
       }
 
       setData(nextData);
     } catch (err) {
-      /*
-       * Ignore errors from stale requests.
-       */
-      if (
-        requestId !== requestIdRef.current
-      ) {
+      if (requestId !== requestIdRef.current) {
         return;
       }
 
@@ -133,51 +104,27 @@ export function useDashboard({
           : "Não foi possível carregar os dados.",
       );
     } finally {
-      if (
-        requestId === requestIdRef.current
-      ) {
+      if (requestId === requestIdRef.current) {
         setLoading(false);
       }
     }
   }, [guildId]);
 
-  /*
-   * Load dashboard data whenever the selected
-   * Discord server changes.
-   *
-   * The first render keeps the server-side
-   * initialData when it belongs to the same guild.
-   */
   useEffect(() => {
     if (!guildId) {
       return;
     }
 
-    /*
-     * If the initial data already belongs to this
-     * guild, keep it and don't make an unnecessary
-     * request on the first render.
-     */
     if (
       initialGuildIdRef.current === guildId &&
-      initialData.servers.current?.guildId ===
-        guildId
+      initialData.servers.current?.guildId === guildId
     ) {
       return;
     }
 
     void refresh();
-  }, [
-    guildId,
-    refresh,
-    initialData,
-  ]);
+  }, [guildId, refresh, initialData]);
 
-  /*
-   * When the guild changes, immediately clear
-   * stale server-specific data while the new
-   * server is loading.
-   */
   useEffect(() => {
     if (
       !guildId ||
@@ -188,19 +135,23 @@ export function useDashboard({
 
     setData((current) => ({
       ...current,
-
       servers: {
         ...current.servers,
         current: null,
       },
-
       tickets: {
         total: 0,
         open: 0,
+        pending: 0,
         closed: 0,
+        priorities: {
+          low: 0,
+          normal: 0,
+          high: 0,
+          urgent: 0,
+        },
         recent: [],
       },
-
       suggestions: {
         total: 0,
         pending: 0,
@@ -219,4 +170,3 @@ export function useDashboard({
     refresh,
   };
 }
-
