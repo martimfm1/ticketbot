@@ -10,19 +10,36 @@ const SNOWFLAKE = /^\d{17,20}$/;
 const ALLOWED_STATUS = new Set(["open", "pending", "closed"]);
 const ALLOWED_PRIORITY = new Set(["low", "normal", "high", "urgent"]);
 
+function normalizeTicket(ticket: any) {
+  return {
+    channelId: String(ticket.channel_id),
+    guildId: ticket.guild_id == null ? null : String(ticket.guild_id),
+    userId: String(ticket.user_id),
+    subject: ticket.subject ?? null,
+    status: ticket.status ?? "open",
+    priority: ticket.priority ?? "normal",
+    openedAt: ticket.opened_at,
+    closedAt: ticket.closed_at ?? null,
+    claimedBy: ticket.claimed_by == null ? null : String(ticket.claimed_by),
+    assignedTo: ticket.assigned_to == null ? null : String(ticket.assigned_to),
+    claimedAt: ticket.claimed_at ?? null,
+    lastActivityAt: ticket.last_activity_at ?? null,
+    closedBy: ticket.closed_by == null ? null : String(ticket.closed_by),
+    resolutionNote: ticket.resolution_note ?? null,
+    updatedAt: ticket.updated_at ?? null,
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const guildId = searchParams.get("guildId") ?? "";
     const status = searchParams.get("status")?.toLowerCase();
     const priority = searchParams.get("priority")?.toLowerCase();
-    const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 50), 1), 100);
+    const limit = Math.min(Math.max(Number(searchParams.get("limit") ?? 100), 1), 100);
 
     await requireTicketAccess(guildId);
-
-    if (!SNOWFLAKE.test(guildId)) {
-      return NextResponse.json({ error: "Invalid guildId" }, { status: 400 });
-    }
+    if (!SNOWFLAKE.test(guildId)) return NextResponse.json({ error: "Invalid guildId" }, { status: 400 });
 
     let query = supabaseServer
       .from("tickets")
@@ -38,7 +55,7 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return NextResponse.json({ tickets: data ?? [] }, { headers: { "Cache-Control": "private, no-store" } });
+    return NextResponse.json({ tickets: (data ?? []).map(normalizeTicket) }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return jsonError(error);
   }
@@ -50,7 +67,6 @@ export async function PATCH(request: Request) {
     const guildId = String(body.guildId ?? "");
     const channelId = String(body.channelId ?? "");
     const action = String(body.action ?? "").toLowerCase();
-
     const access = await requireTicketAccess(guildId);
 
     if (!SNOWFLAKE.test(guildId) || !SNOWFLAKE.test(channelId)) {
@@ -72,7 +88,6 @@ export async function PATCH(request: Request) {
         payload.claimed_by = null;
         payload.assigned_to = null;
         payload.claimed_at = null;
-        eventPayload = {};
         break;
       case "close":
         payload.status = "closed";
@@ -85,38 +100,29 @@ export async function PATCH(request: Request) {
         payload.status = "open";
         payload.closed_at = null;
         payload.closed_by = null;
-        eventPayload = {};
         break;
       case "priority": {
-        const priority = String(body.priority ?? "normal").toLowerCase();
-        if (!ALLOWED_PRIORITY.has(priority)) {
-          return NextResponse.json({ error: "Invalid priority" }, { status: 400 });
-        }
-        payload.priority = priority;
-        eventPayload = { priority };
+        const value = String(body.priority ?? "normal").toLowerCase();
+        if (!ALLOWED_PRIORITY.has(value)) return NextResponse.json({ error: "Invalid priority" }, { status: 400 });
+        payload.priority = value;
+        eventPayload = { priority: value };
         break;
       }
       case "status": {
-        const status = String(body.status ?? "open").toLowerCase();
-        if (!ALLOWED_STATUS.has(status)) {
-          return NextResponse.json({ error: "Invalid status" }, { status: 400 });
-        }
-        payload.status = status;
-        if (status === "closed") {
+        const value = String(body.status ?? "open").toLowerCase();
+        if (!ALLOWED_STATUS.has(value)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+        payload.status = value;
+        if (value === "closed") {
           payload.closed_at = new Date().toISOString();
           payload.closed_by = Number(access.userId);
         }
-        eventPayload = { status };
+        eventPayload = { status: value };
         break;
       }
       case "assign": {
-        if (!access.canManage) {
-          return NextResponse.json({ error: "Only server managers can assign tickets" }, { status: 403 });
-        }
+        if (!access.canManage) return NextResponse.json({ error: "Only server managers can assign tickets" }, { status: 403 });
         const assignedTo = body.userId ? String(body.userId) : null;
-        if (assignedTo && !SNOWFLAKE.test(assignedTo)) {
-          return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
-        }
+        if (assignedTo && !SNOWFLAKE.test(assignedTo)) return NextResponse.json({ error: "Invalid assignee" }, { status: 400 });
         payload.assigned_to = assignedTo ? Number(assignedTo) : null;
         payload.claimed_by = assignedTo ? Number(assignedTo) : null;
         payload.claimed_at = assignedTo ? new Date().toISOString() : null;
@@ -149,7 +155,7 @@ export async function PATCH(request: Request) {
 
     if (eventError) throw eventError;
 
-    return NextResponse.json({ success: true, ticket });
+    return NextResponse.json({ success: true, ticket: normalizeTicket(ticket) });
   } catch (error) {
     return jsonError(error);
   }
