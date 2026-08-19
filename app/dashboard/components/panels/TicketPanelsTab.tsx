@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 interface TicketPanelsTabProps {
   data: DashboardMetrics;
+  guildId: string;
   onSaved: () => Promise<void>;
   onToast: (message: string, type?: "success" | "error") => void;
 }
@@ -15,7 +16,7 @@ interface DiscordRole { id: string; name: string; color: number; }
 interface DiscordCategory { id: string; name: string; }
 interface DiscordChannel { id: string; name: string; type: number; parentId: string | null; }
 
-export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps) {
+export function TicketPanelsTab({ data, guildId, onSaved, onToast }: TicketPanelsTabProps) {
   const server = data.servers.current;
   const [categoryId, setCategoryId] = useState(server?.ticketCategoryId ?? "");
   const [roleId, setRoleId] = useState(server?.adminRoleId ?? "");
@@ -35,7 +36,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
   }, [server?.guildId, server?.adminRoleId, server?.ticketCategoryId, server?.transcriptChannelId, server?.language]);
 
   useEffect(() => {
-    if (!server?.guildId) {
+    if (!guildId) {
       setRoles([]); setCategories([]); setChannels([]); setLoadingOptions(false); return;
     }
 
@@ -43,7 +44,6 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     async function loadDiscordOptions() {
       setLoadingOptions(true);
       try {
-        const guildId = server.guildId;
         const [rolesResponse, channelsResponse] = await Promise.all([
           fetch(`/api/dashboard/roles?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
           fetch(`/api/dashboard/channels?guildId=${encodeURIComponent(guildId)}`, { cache: "no-store" }),
@@ -70,11 +70,11 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
     }
     void loadDiscordOptions();
     return () => { cancelled = true; };
-  }, [server?.guildId, onToast]);
+  }, [guildId, onToast]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!server?.guildId) {
+    if (!guildId) {
       onToast("Nenhum servidor selecionado.", "error");
       return;
     }
@@ -85,7 +85,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          guild_id: server.guildId,
+          guild_id: guildId,
           ticket_category_id: categoryId || null,
           admin_role_id: roleId || null,
           admin_role_name: selectedRole?.name ?? null,
@@ -155,7 +155,7 @@ export function TicketPanelsTab({ data, onSaved, onToast }: TicketPanelsTabProps
           </div>
         </div>
         <div className="flex justify-end border-t border-zinc-800/70 px-5 py-4">
-          <button type="submit" disabled={saving || loadingOptions || !server?.guildId} className="flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50">
+          <button type="submit" disabled={saving || loadingOptions || !guildId} className="flex items-center gap-2 rounded-lg bg-zinc-100 px-4 py-2.5 text-xs font-semibold text-zinc-950 transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-50">
             {saving ? <Loader2 className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
             Guardar alterações
           </button>
