@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { getToken } from "next-auth/jwt";
 import type { JWT } from "next-auth/jwt";
@@ -92,7 +92,7 @@ async function getUsableAccessToken(token: JWT): Promise<string | null> {
   return typeof refreshed.accessToken === "string" ? refreshed.accessToken : null;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
