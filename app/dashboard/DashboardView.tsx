@@ -44,57 +44,26 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
   const [loadingGuilds, setLoadingGuilds] = useState(true);
   const [guildError, setGuildError] = useState<string | null>(null);
 
-  const { data, loading, error: dashboardError, refresh } = useDashboard({
-    guildId,
-    initialData,
-  });
+  const { data, loading, error: dashboardError, refresh } = useDashboard({ guildId, initialData });
 
   useEffect(() => {
     let cancelled = false;
-
     async function loadGuilds() {
       try {
         setLoadingGuilds(true);
         setGuildError(null);
-
-        const response = await fetch("/api/dashboard/servers", {
-          method: "GET",
-          cache: "no-store",
-          headers: { Accept: "application/json" },
-        });
-
+        const response = await fetch("/api/dashboard/servers", { method: "GET", cache: "no-store", headers: { Accept: "application/json" } });
         const result = await response.json().catch(() => null);
-
-        console.info("[DashboardView] /api/dashboard/servers", {
-          status: response.status,
-          guildCount: Array.isArray(result?.guilds) ? result.guilds.length : 0,
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            typeof result?.error === "string"
-              ? result.error
-              : `Failed to load guilds (${response.status})`,
-          );
-        }
-
+        console.info("[DashboardView] /api/dashboard/servers", { status: response.status, guildCount: Array.isArray(result?.guilds) ? result.guilds.length : 0 });
+        if (!response.ok) throw new Error(typeof result?.error === "string" ? result.error : `Failed to load guilds (${response.status})`);
         if (cancelled) return;
-
-        const availableGuilds: DashboardGuild[] = Array.isArray(result?.guilds)
-          ? result.guilds
-          : [];
-
+        const availableGuilds: DashboardGuild[] = Array.isArray(result?.guilds) ? result.guilds : [];
         setGuilds(availableGuilds);
         setGuildId((currentGuildId) => {
           const currentExists = currentGuildId && availableGuilds.some((guild) => guild.id === currentGuildId);
           return currentExists ? currentGuildId : availableGuilds[0]?.id ?? "";
         });
-
-        if (availableGuilds.length === 0) {
-          setGuildError(
-            "Nenhum servidor elegível foi encontrado. A conta precisa de Administrator ou Manage Server no Discord.",
-          );
-        }
+        if (availableGuilds.length === 0) setGuildError("Nenhum servidor elegível foi encontrado. A conta precisa de Administrator ou Manage Server no Discord.");
       } catch (error) {
         console.error("[DashboardView] Failed to load guilds", error);
         if (!cancelled) {
@@ -105,11 +74,8 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
         if (!cancelled) setLoadingGuilds(false);
       }
     }
-
     void loadGuilds();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -166,17 +132,10 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
 
   return (
     <div className="flex min-h-screen bg-black text-zinc-100">
-      <div className="pointer-events-none fixed right-5 top-5 z-[100] flex w-[calc(100vw-2.5rem)] max-w-sm flex-col gap-2">
+      <div className="pointer-events-none fixed right-3 top-20 z-[100] flex w-[calc(100vw-1.5rem)] max-w-sm flex-col gap-2 sm:right-5 sm:top-5 sm:w-[calc(100vw-2.5rem)]">
         <AnimatePresence>
           {toasts.map((toast) => (
-            <motion.div
-              key={toast.id}
-              initial={{ opacity: 0, y: -8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.98 }}
-              transition={{ duration: 0.2 }}
-              className={["rounded-xl border px-4 py-3 text-xs shadow-xl backdrop-blur-xl", toast.type === "success" ? "border-emerald-500/20 bg-zinc-900/95 text-emerald-400" : "border-red-500/20 bg-zinc-900/95 text-red-400"].join(" ")}
-            >
+            <motion.div key={toast.id} initial={{ opacity: 0, y: -8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -8, scale: 0.98 }} transition={{ duration: 0.2 }} className={["rounded-xl border px-4 py-3 text-xs shadow-xl backdrop-blur-xl", toast.type === "success" ? "border-emerald-500/20 bg-zinc-900/95 text-emerald-400" : "border-red-500/20 bg-zinc-900/95 text-red-400"].join(" ")}>
               {toast.message}
             </motion.div>
           ))}
@@ -184,7 +143,7 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
       </div>
       <DashboardSidebar activeTab={activeTab} guildId={guildId} guilds={guilds} user={user} onNavigate={setActiveTab} onGuildChange={handleGuildChange} />
       <main className="min-w-0 flex-1 overflow-x-hidden">
-        <div className="mx-auto max-w-[1600px] p-5 lg:p-8">
+        <div className="mx-auto max-w-[1600px] px-3 pb-24 pt-3 sm:p-5 sm:pb-24 lg:p-8 lg:pb-8">
           <DashboardHeader title={activeTab} guildId={guildId} refreshing={loading || loadingGuilds} onRefresh={refresh} />
           {visibleError && (
             <div className="mb-5 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
@@ -193,7 +152,7 @@ export default function DashboardView({ user, initialData }: DashboardViewProps)
             </div>
           )}
           {currentGuild && <div className="sr-only">{currentGuild.name}</div>}
-          <div className="mt-6">
+          <div className="mt-4 sm:mt-6">
             <AnimatePresence mode="wait">
               <motion.div key={`${guildId}-${activeTab}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
                 {renderTab()}
