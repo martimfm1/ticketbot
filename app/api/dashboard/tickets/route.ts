@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       {
         headers: {
           "Cache-Control": "private, no-store",
-          "X-SILENTRA-Ticket-API": "v1",
+          "X-SILENTRA-Ticket-API": "v2",
         },
       },
     );
@@ -82,14 +82,20 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const guildId = String(body.guildId ?? "");
     const channelId = String(body.channelId ?? "");
+    const requestedUserId = body.userId == null ? "" : String(body.userId);
     const action = String(body.action ?? "").toLowerCase();
 
     if (!SNOWFLAKE.test(guildId) || !SNOWFLAKE.test(channelId)) {
       return NextResponse.json({ error: "Invalid ticket identifier" }, { status: 400 });
     }
+    if (requestedUserId && !SNOWFLAKE.test(requestedUserId)) {
+      return NextResponse.json({ error: "Invalid ticket user identifier" }, { status: 400 });
+    }
 
     const access = await requireTicketAccess(guildId);
-    const payload: Record<string, unknown> = {};
+    const payload: Record<string, unknown> = {
+      last_activity_at: new Date().toISOString(),
+    };
     let eventPayload: Record<string, unknown> = {};
 
     switch (action) {
@@ -157,13 +163,45 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: "Unknown ticket action" }, { status: 400 });
     }
 
-    const { data: ticket, error: ticketError } = await supabaseServer
+    let { data: ticket, error: ticketError } = await supabaseServer
       .from("tickets")
       .update(payload)
       .eq("guild_id", guildId)
       .eq("channel_id", channelId)
       .select("*")
       .maybeSingle();
+
+    let staleReference = false;
+
+    // A ticket can legitimately change channel_id when it is reopened. If the UI
+    // still holds the previous channel id, recover the current open ticket for the
+    // same guild/user instead of returning a misleading 404.
+    if (!ticket && !ticketError && requestedUserId) {
+      const { data: currentTicket, error: currentTicketError } = await supabaseServer
+        .from("tickets")
+        .select("*")
+        .eq("guild_id", guildId)
+        .eq("user_id", requestedUserId)
+        .eq("status", "open")
+        .order("last_activity_at", { ascending: false, nullsFirst: false })
+        .order("opened_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (currentTicketError) throw currentTicketError;
+      if (currentTicket) {
+        staleReference = String(currentTicket.channel_id) !== channelId;
+        const retry = await supabaseServer
+          .from("tickets")
+          .update(payload)
+          .eq("guild_id", guildId)
+          .eq("channel_id", String(currentTicket.channel_id))
+          .select("*")
+          .maybeSingle();
+        ticket = retry.data;
+        ticketError = retry.error;
+      }
+    }
 
     if (ticketError) throw ticketError;
     if (!ticket) {
@@ -173,20 +211,40 @@ export async function PATCH(request: Request) {
       );
     }
 
+    const canonicalChannelId = String(ticket.channel_id);
+    const canonicalGuildId = String(ticket.guild_id ?? guildId);
+
     const { error: eventError } = await supabaseServer.from("ticket_events").insert({
-      guild_id: guildId,
-      channel_id: channelId,
+      guild_id: canonicalGuildId,
+      channel_id: canonicalChannelId,
       event_type: `dashboard.${action}`,
       actor_id: access.userId,
       payload: eventPayload,
       status: "pending",
     });
 
-    if (eventError) throw eventError;
+    if (eventError) {
+      console.error("[dashboard/tickets] failed to enqueue Discord sync event", {
+        guildId: canonicalGuildId,
+        channelId: canonicalChannelId,
+        action,
+        error: eventError,
+      });
+      return NextResponse.json(
+        {
+          success: true,
+          syncStatus: "pending-unavailable",
+          warning: "Ticket was updated, but Discord synchronization is temporarily unavailable.",
+          ticket: normalizeTicket(ticket),
+          staleReference,
+        },
+        { headers: { "X-SILENTRA-Ticket-API": "v2" } },
+      );
+    }
 
     return NextResponse.json(
-      { success: true, ticket: normalizeTicket(ticket) },
-      { headers: { "X-SILENTRA-Ticket-API": "v1" } },
+      { success: true, syncStatus: "queued", ticket: normalizeTicket(ticket), staleReference },
+      { headers: { "X-SILENTRA-Ticket-API": "v2" } },
     );
   } catch (error) {
     return jsonError(error);
