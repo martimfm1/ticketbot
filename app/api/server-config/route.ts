@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { supabaseServer } from "@/lib/supabase";
+import { assertGuildAccess } from "@/lib/discord/guild-access";
 
 const SNOWFLAKE = /^\d{17,20}$/;
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
@@ -61,8 +65,29 @@ function cleanCustomization(value: unknown): Record<string, unknown> {
   return output;
 }
 
+function sameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+
+  try {
+    const requestUrl = new URL(request.url);
+    return new URL(origin).origin === requestUrl.origin;
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: Request) {
   try {
+    if (!sameOrigin(req)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       guild_id,
@@ -81,15 +106,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Guild ID obrigatório" }, { status: 400 });
     }
 
-    const serverPayload: Record<string, unknown> = { guild_id: guildId };
+    await assertGuildAccess(session, guildId);
 
+    const serverPayload: Record<string, unknown> = { guild_id: guildId };
     if (ticket_category_id !== undefined) serverPayload.ticket_category_id = cleanSnowflake(ticket_category_id);
     if (admin_role_name !== undefined) serverPayload.admin_role_name = cleanText(admin_role_name, 100);
     if (admin_role_id !== undefined) serverPayload.admin_role_id = cleanSnowflake(admin_role_id);
     if (ticket_role_id !== undefined) serverPayload.ticket_role_id = cleanSnowflake(ticket_role_id);
     if (transcript_channel_id !== undefined) serverPayload.transcript_channel_id = cleanSnowflake(transcript_channel_id);
-    if (language !== undefined) serverPayload.language = language;
-    if (ticket_panel_config !== undefined) serverPayload.ticket_panel_config = cleanCustomization(ticket_panel_config);
+    if (language !== undefined) {
+      const normalizedLanguage = String(language);
+      if (!["en", "pt-PT", "pt-BR"].includes(normalizedLanguage)) {
+        return NextResponse.json({ error: "Invalid language" }, { status: 400 });
+      }
+      serverPayload.language = normalizedLanguage;
+    }
+    if (ticket_panel_config !== undefined) {
+      serverPayload.ticket_panel_config = cleanCustomization(ticket_panel_config);
+    }
 
     const { error: serverError } = await supabaseServer
       .from("servers")
@@ -113,10 +147,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, guildId });
   } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
     console.error("[server-config]", err);
+
+    const status =
+      message === "UNAUTHORIZED" ? 401 :
+      message === "GUILD_ACCESS_DENIED" ? 403 :
+      message === "DISCORD_BOT_TOKEN_MISSING" ? 503 : 500;
+
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erro de servidor" },
-      { status: 500 },
+      { error: status === 401 ? "Unauthorized" : status === 403 ? "Forbidden" : message || "Server error" },
+      { status },
     );
   }
 }
