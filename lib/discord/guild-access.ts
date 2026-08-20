@@ -5,13 +5,6 @@ const DISCORD_API_URL = "https://discord.com/api/v10";
 const ADMINISTRATOR = BigInt(1) << BigInt(3);
 const MANAGE_GUILD = BigInt(1) << BigInt(5);
 
-interface UserGuild {
-  id: string;
-  name: string;
-  owner: boolean;
-  permissions: string;
-}
-
 interface DiscordRole {
   id: string;
   permissions: string;
@@ -39,9 +32,7 @@ function hasManageGuildPermission(permissions: string | number | bigint): boolea
 
 function getBotToken(): string {
   const token = process.env.DISCORD_BOT_TOKEN;
-  if (!token) {
-    throw new Error("DISCORD_BOT_TOKEN_MISSING");
-  }
+  if (!token) throw new Error("DISCORD_BOT_TOKEN_MISSING");
   return token;
 }
 
@@ -61,7 +52,11 @@ async function discordBotFetch<T>(endpoint: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-async function assertGuildAccessWithBot(
+/**
+ * Dashboard authorization is intentionally server-side and bot-scoped.
+ * The browser never needs the Discord OAuth access token.
+ */
+export async function assertGuildAccess(
   session: Session,
   guildId: string,
 ): Promise<void> {
@@ -84,53 +79,4 @@ async function assertGuildAccessWithBot(
   if (!hasManageGuildPermission(permissions)) {
     throw new Error("GUILD_ACCESS_DENIED");
   }
-}
-
-export async function assertGuildAccess(
-  session: Session,
-  guildId: string,
-): Promise<void> {
-  const accessToken = session.user?.accessToken;
-
-  if (!accessToken) {
-    await assertGuildAccessWithBot(session, guildId);
-    return;
-  }
-
-  const response = await fetch(`${DISCORD_API_URL}/users/@me/guilds`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  });
-
-  if (response.ok) {
-    const guilds = (await response.json()) as UserGuild[];
-    const guild = guilds.find((entry) => entry.id === guildId);
-
-    if (!guild) {
-      throw new Error("GUILD_ACCESS_DENIED");
-    }
-
-    if (guild.owner || hasManageGuildPermission(guild.permissions)) {
-      return;
-    }
-
-    throw new Error("GUILD_ACCESS_DENIED");
-  }
-
-  if (response.status === 401) {
-    try {
-      await assertGuildAccessWithBot(session, guildId);
-      return;
-    } catch (error) {
-      if (error instanceof Error && error.message === "GUILD_ACCESS_DENIED") {
-        throw error;
-      }
-      throw new Error("DISCORD_AUTHORIZATION_EXPIRED");
-    }
-  }
-
-  throw new Error("DISCORD_AUTHORIZATION_EXPIRED");
 }
