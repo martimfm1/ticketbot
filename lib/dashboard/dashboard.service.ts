@@ -4,9 +4,31 @@ import type {
   DashboardServer,
   DashboardTicket,
   DashboardSuggestion,
+  TicketCustomization,
 } from "@/types/dashboard";
 
 const DISCORD_SNOWFLAKE_REGEX = /^\d{17,20}$/;
+
+const DEFAULT_TICKET_CUSTOMIZATION: TicketCustomization = {
+  panelTitle: "Need help?",
+  panelDescription: "Open a private support ticket and our team will help you as soon as possible.",
+  panelFooter: "SILENTRA Ticket",
+  panelColor: "#18181B",
+  panelButtonLabel: "Open Ticket",
+  panelButtonEmoji: "🎫",
+  panelButtonStyle: "secondary",
+  ticketTitle: "Ticket opened for {member}",
+  ticketDescription: "Thanks for contacting support. A member of the team will be with you shortly.",
+  ticketFooter: "SILENTRA Ticket",
+  ticketColor: "#18181B",
+  welcomeMessage: "{member} {support_role}\n\nPlease describe your issue and include any useful details.",
+  modalTitle: "Open a Support Ticket",
+  modalSubjectLabel: "Subject",
+  modalSubjectPlaceholder: "Briefly describe what you need help with",
+  channelPrefix: "ticket-",
+  mentionSupport: true,
+  allowUserAttachments: true,
+};
 
 function toId(value: number | string | bigint | null | undefined): string | null {
   if (value === null || value === undefined) return null;
@@ -17,13 +39,29 @@ function validateGuildId(guildId: string): void {
   if (!DISCORD_SNOWFLAKE_REGEX.test(guildId)) throw new Error("Invalid Discord guild ID");
 }
 
+function normalizeCustomization(value: unknown): TicketCustomization {
+  const source = value && typeof value === "object" && !Array.isArray(value)
+    ? value as Partial<TicketCustomization>
+    : {};
+
+  return {
+    ...DEFAULT_TICKET_CUSTOMIZATION,
+    ...source,
+    panelButtonStyle: ["secondary", "primary", "success", "danger"].includes(String(source.panelButtonStyle))
+      ? source.panelButtonStyle as TicketCustomization["panelButtonStyle"]
+      : DEFAULT_TICKET_CUSTOMIZATION.panelButtonStyle,
+    mentionSupport: source.mentionSupport !== false,
+    allowUserAttachments: source.allowUserAttachments !== false,
+  };
+}
+
 export async function getDashboardMetrics(guildId: string): Promise<DashboardMetrics> {
   validateGuildId(guildId);
 
   const [{ data: server, error: serverError }, { count: serverCount, error: serverCountError }, { data: tickets, error: ticketsError }, { data: suggestions, error: suggestionsError }] = await Promise.all([
     supabaseServer
       .from("servers")
-      .select("guild_id, ticket_category_id, admin_role_name, admin_role_id, ticket_role_id, transcript_channel_id, language")
+      .select("guild_id, ticket_category_id, admin_role_name, admin_role_id, ticket_role_id, transcript_channel_id, language, ticket_panel_config")
       .eq("guild_id", guildId)
       .maybeSingle(),
     supabaseServer.from("servers").select("guild_id", { count: "exact", head: true }),
@@ -108,8 +146,6 @@ export async function getDashboardMetrics(guildId: string): Promise<DashboardMet
 
   const currentServer: DashboardServer | null = server
     ? {
-        // Always preserve the exact Snowflake supplied by Discord/URL.
-        // Do not round it through a Postgres bigint -> JS number conversion.
         guildId,
         ticketCategoryId: toId(server.ticket_category_id),
         adminRoleName: server.admin_role_name,
@@ -117,6 +153,7 @@ export async function getDashboardMetrics(guildId: string): Promise<DashboardMet
         ticketRoleId: toId(server.ticket_role_id),
         transcriptChannelId: toId(server.transcript_channel_id),
         language: server.language ?? "en",
+        ticketCustomization: normalizeCustomization(server.ticket_panel_config),
       }
     : null;
 
