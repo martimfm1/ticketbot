@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStripeClient } from "@/lib/stripe/server";
-import { PLANS, intervalForPrice } from "@/lib/stripe/constants";
+import { PLANS, PLAN_META, intervalForPrice } from "@/lib/stripe/constants";
+import { planLimits } from "@/lib/billing/entitlements";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,9 +9,18 @@ export const dynamic = "force-dynamic";
 const PRICE_CONFIG = [
   [PLANS.PRO, "monthly", process.env.STRIPE_PRICE_PRO_MONTHLY],
   [PLANS.PRO, "yearly", process.env.STRIPE_PRICE_PRO_YEARLY],
+  [PLANS.BUSINESS, "monthly", process.env.STRIPE_PRICE_BUSINESS_MONTHLY],
+  [PLANS.BUSINESS, "yearly", process.env.STRIPE_PRICE_BUSINESS_YEARLY],
   [PLANS.ENTERPRISE, "monthly", process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY],
   [PLANS.ENTERPRISE, "yearly", process.env.STRIPE_PRICE_ENTERPRISE_YEARLY],
 ] as const;
+
+const FEATURES = {
+  free: ["1 servidor", "Tickets base", "Branding essencial", "Audit log"],
+  pro: ["Até 5 servidores", "Forms", "Teams", "Tags", "Canned responses", "Automations", "Advanced analytics", "AI Copilot"],
+  business: ["Até 25 servidores", "SLA e escalations", "Knowledge Base", "Smart routing", "CSAT", "AI sentiment", "AI insights", "Webhooks"],
+  enterprise: ["Servidores ilimitados", "AI Autopilot", "Support Score", "API access", "White-label", "Enterprise controls", "Tudo do Business"],
+} as const;
 
 export async function GET() {
   try {
@@ -28,31 +38,20 @@ export async function GET() {
       }),
     );
 
-    return NextResponse.json({
-      plans: [
-        {
-          id: PLANS.FREE,
-          name: "Ticket Free",
-          description: "O essencial para começares a organizar suporte no Discord.",
-          features: ["1 servidor", "Tickets base", "Configuração essencial", "Dashboard básico"],
-          prices: [{ interval: "monthly", unitAmount: 0, currency: "eur", priceId: null }],
-        },
-        {
-          id: PLANS.PRO,
-          name: "Ticket Pro",
-          description: "Automação, analytics e ferramentas avançadas para equipas.",
-          features: ["Servidores ilimitados", "Inbox completo", "Analytics", "Ticket customization", "Prioridades e assignment", "30 dias de trial"],
-          prices: prices.filter((price) => price.plan === PLANS.PRO),
-        },
-        {
-          id: PLANS.ENTERPRISE,
-          name: "Ticket Enterprise",
-          description: "Governança e escala para redes e operações maiores.",
-          features: ["Tudo do Pro", "Planos multi-servidor", "Overrides", "Billing portal", "Suporte prioritário"],
-          prices: prices.filter((price) => price.plan === PLANS.ENTERPRISE),
-        },
-      ],
-    }, { headers: { "Cache-Control": "private, no-store" } });
+    const plans = ([PLANS.FREE, PLANS.PRO, PLANS.BUSINESS, PLANS.ENTERPRISE] as const).map((id) => ({
+      id,
+      name: PLAN_META[id].name,
+      tagline: PLAN_META[id].tagline,
+      description: PLAN_META[id].description,
+      highlighted: Boolean(PLAN_META[id].highlighted),
+      features: FEATURES[id],
+      limits: planLimits(id),
+      prices: id === PLANS.FREE
+        ? [{ interval: "monthly" as const, unitAmount: 0, currency: "eur", priceId: null }]
+        : prices.filter((price) => price.plan === id),
+    }));
+
+    return NextResponse.json({ plans }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("[billing/plans]", error);
     return NextResponse.json({ error: "Billing is not configured." }, { status: 503 });
