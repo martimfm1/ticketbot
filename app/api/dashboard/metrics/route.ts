@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getDashboardMetrics } from "@/lib/dashboard/dashboard.service";
+import { assertGuildAccess } from "@/lib/discord/guild-access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,10 +37,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Invalid guildId", requestId }, { status: 400 });
     }
 
-    console.info("[dashboard-metrics] loading", {
-      requestId,
-      guildId,
-    });
+    await assertGuildAccess(session, guildId);
 
     const data = await getDashboardMetrics(guildId);
 
@@ -52,25 +51,19 @@ export async function GET(request: Request) {
 
     return NextResponse.json(data, {
       status: 200,
-      headers: {
-        "Cache-Control": "private, no-store, max-age=0",
-      },
+      headers: { "Cache-Control": "private, no-store, max-age=0" },
     });
   } catch (error) {
-    console.error("[dashboard-metrics] failed", {
-      requestId,
-      error,
-    });
+    console.error("[dashboard-metrics] failed", { requestId, error });
+    const message = error instanceof Error ? error.message : "";
+    const status = message === "UNAUTHORIZED" ? 401 : message === "GUILD_ACCESS_DENIED" ? 403 : 500;
 
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to load dashboard metrics",
+        error: status === 401 ? "Unauthorized" : status === 403 ? "Forbidden" : message || "Failed to load dashboard metrics",
         requestId,
       },
-      { status: 500 },
+      { status },
     );
   }
 }
