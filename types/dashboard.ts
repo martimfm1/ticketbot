@@ -1,3 +1,24 @@
+export interface TicketCustomization {
+  panelTitle: string;
+  panelDescription: string;
+  panelFooter: string;
+  panelColor: string;
+  panelButtonLabel: string;
+  panelButtonEmoji: string;
+  panelButtonStyle: "secondary" | "primary" | "success" | "danger";
+  ticketTitle: string;
+  ticketDescription: string;
+  ticketFooter: string;
+  ticketColor: string;
+  welcomeMessage: string;
+  modalTitle: string;
+  modalSubjectLabel: string;
+  modalSubjectPlaceholder: string;
+  channelPrefix: string;
+  mentionSupport: boolean;
+  allowUserAttachments: boolean;
+}
+
 export interface DashboardServer {
   guildId: string;
   ticketCategoryId: string | null;
@@ -6,6 +27,7 @@ export interface DashboardServer {
   ticketRoleId: string | null;
   transcriptChannelId: string | null;
   language: string;
+  ticketCustomization: TicketCustomization;
 }
 
 export interface DashboardTicket {
@@ -57,7 +79,6 @@ export interface DashboardMetrics {
     total: number;
     current: DashboardServer | null;
   };
-
   tickets: {
     total: number;
     open: number;
@@ -71,7 +92,6 @@ export interface DashboardMetrics {
     };
     recent: DashboardTicket[];
   };
-
   suggestions: {
     total: number;
     pending: number;
