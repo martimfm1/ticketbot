@@ -28,27 +28,26 @@ function hasManageGuildPermission(permissions: string | number | bigint): boolea
   }
 }
 
-async function getDiscordGuildPermissions(accessToken: string, guildId: string) {
-  const response = await fetch(`${DISCORD_API_URL}/users/@me/guilds`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+async function botFetch<T>(endpoint: string): Promise<T> {
+  const botToken = process.env.DISCORD_BOT_TOKEN;
+  if (!botToken) throw new Error("DISCORD_BOT_TOKEN_MISSING");
+
+  const response = await fetch(`${DISCORD_API_URL}${endpoint}`, {
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      Accept: "application/json",
+    },
     cache: "no-store",
   });
 
-  if (!response.ok) return null;
-
-  const guilds = (await response.json()) as Array<{
-    id: string;
-    owner: boolean;
-    permissions: string;
-  }>;
-
-  return guilds.find((guild) => guild.id === guildId) ?? null;
+  if (!response.ok) throw new Error(`DISCORD_BOT_API_${response.status}`);
+  return response.json() as Promise<T>;
 }
 
 async function getServerConfig(guildId: string) {
   const { data, error } = await supabaseServer
     .from("servers")
-    .select("guild_id, admin_role_id, ticket_role_id, admin_role_name")
+    .select("guild_id, ticket_role_id, admin_role_id, admin_role_name")
     .eq("guild_id", guildId)
     .maybeSingle();
 
@@ -56,62 +55,35 @@ async function getServerConfig(guildId: string) {
   return data;
 }
 
-async function getBotMemberRoles(guildId: string, userId: string): Promise<string[]> {
-  const botToken = process.env.DISCORD_BOT_TOKEN;
-  if (!botToken) return [];
-
-  const response = await fetch(`${DISCORD_API_URL}/guilds/${guildId}/members/${userId}`, {
-    headers: { Authorization: `Bot ${botToken}` },
-    cache: "no-store",
-  });
-
-  if (!response.ok) return [];
-
-  const member = (await response.json()) as { roles?: string[] };
-  return Array.isArray(member.roles) ? member.roles : [];
-}
-
 export async function requireTicketAccess(guildId: string): Promise<TicketAccess> {
-  if (!validSnowflake(guildId)) {
-    throw new Error("Invalid guildId");
-  }
+  if (!validSnowflake(guildId)) throw new Error("Invalid guildId");
 
   const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    throw new Response("Unauthorized", { status: 401 });
-  }
+  const userId = session?.user?.id;
+  if (!userId) throw new Response("Unauthorized", { status: 401 });
 
-  const accessToken = session.user.accessToken;
-  if (!accessToken) {
-    throw new Response("Discord authorization expired", { status: 401 });
-  }
-
-  const [discordGuild, config] = await Promise.all([
-    getDiscordGuildPermissions(accessToken, guildId),
+  const [guild, member, roles, config] = await Promise.all([
+    botFetch<{ owner_id: string }>(`/guilds/${guildId}`),
+    botFetch<{ roles?: string[] }>(`/guilds/${guildId}/members/${userId}`),
+    botFetch<Array<{ id: string; permissions: string }>>(`/guilds/${guildId}/roles`),
     getServerConfig(guildId),
   ]);
 
-  if (!discordGuild) {
-    throw new Response("Guild access denied", { status: 403 });
-  }
+  const roleIds = new Set(member.roles ?? []);
+  const permissions = roles
+    .filter((role) => roleIds.has(role.id))
+    .reduce((acc, role) => acc | BigInt(role.permissions), BigInt(0));
 
-  const canManage = discordGuild.owner || hasManageGuildPermission(discordGuild.permissions);
-
-  if (!canManage && !process.env.DISCORD_BOT_TOKEN) {
-    throw new Response("Staff authorization is unavailable", { status: 503 });
-  }
-
-  const roles = canManage ? [] : await getBotMemberRoles(guildId, session.user.id);
+  const canManage = guild.owner_id === userId || hasManageGuildPermission(permissions);
   const configuredRoleId = config?.ticket_role_id ?? config?.admin_role_id;
-
-  const canSupport = canManage || Boolean(configuredRoleId && roles.includes(String(configuredRoleId)));
+  const canSupport = canManage || Boolean(configuredRoleId && roleIds.has(String(configuredRoleId)));
 
   if (!canSupport) {
     throw new Response("Insufficient ticket permissions", { status: 403 });
   }
 
   return {
-    userId: session.user.id,
+    userId,
     guildId,
     canManage,
     canSupport,
@@ -121,6 +93,16 @@ export async function requireTicketAccess(guildId: string): Promise<TicketAccess
 export function jsonError(error: unknown) {
   if (error instanceof Response) return error;
 
+  const message = error instanceof Error ? error.message : "";
   console.error("[dashboard/ticket-auth]", error);
+
+  if (message === "DISCORD_BOT_TOKEN_MISSING") {
+    return new Response("Ticket authorization is unavailable", { status: 503 });
+  }
+
+  if (message.startsWith("DISCORD_BOT_API_")) {
+    return new Response("Discord authorization unavailable", { status: 502 });
+  }
+
   return new Response("Internal server error", { status: 500 });
 }
