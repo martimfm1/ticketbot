@@ -22,16 +22,13 @@ async function backfillDiscordMessages(guildId: string, channelId: string) {
   const botToken = process.env.DISCORD_BOT_TOKEN;
   if (!botToken) return;
 
-  const response = await fetch(
-    `${DISCORD_API}/channels/${channelId}/messages?limit=100`,
-    {
-      headers: {
-        Authorization: `Bot ${botToken}`,
-        Accept: "application/json",
-      },
-      cache: "no-store",
+  const response = await fetch(`${DISCORD_API}/channels/${channelId}/messages?limit=100`, {
+    headers: {
+      Authorization: `Bot ${botToken}`,
+      Accept: "application/json",
     },
-  );
+    cache: "no-store",
+  });
 
   if (!response.ok) {
     console.error("[dashboard/messages] Discord history fetch failed", {
@@ -46,19 +43,23 @@ async function backfillDiscordMessages(guildId: string, channelId: string) {
   if (!Array.isArray(messages) || messages.length === 0) return;
 
   const rows = messages
-    .filter((message) => message.author?.id && !message.author.bot)
+    .filter((message) => Boolean(message.author?.id))
     .map((message) => ({
       guild_id: guildId,
       channel_id: channelId,
       message_id: message.id,
       author_id: message.author!.id!,
-      author_name: message.author!.global_name ?? message.author!.username ?? message.author!.id!,
+      author_name:
+        message.author!.global_name ??
+        message.author!.username ??
+        message.author!.id!,
       content: (message.content ?? "").slice(0, 4000),
       created_at: message.timestamp ?? new Date().toISOString(),
       edited_at: message.edited_timestamp ?? null,
       attachment_count: message.attachments?.length ?? 0,
       metadata: {
         attachments: (message.attachments ?? []).map((attachment) => attachment.url),
+        isBot: Boolean(message.author?.bot),
       },
     }));
 
@@ -69,10 +70,7 @@ async function backfillDiscordMessages(guildId: string, channelId: string) {
     .upsert(rows, { onConflict: "message_id" });
 
   if (error) {
-    console.error("[dashboard/messages] Backfill failed", {
-      channelId,
-      error,
-    });
+    console.error("[dashboard/messages] Backfill failed", { channelId, error });
   }
 }
 
@@ -103,6 +101,9 @@ export async function GET(
 
     if (error) throw error;
 
+    // Backfill Discord when the shared message store is empty. Bot messages are
+    // intentionally retained because panel, workflow, and assignment events
+    // are useful context when reviewing a ticket from the dashboard.
     if (!data || data.length === 0) {
       await backfillDiscordMessages(guildId, channelId);
 
@@ -126,7 +127,7 @@ export async function GET(
       {
         headers: {
           "Cache-Control": "private, no-store",
-          "X-SILENTRA-Ticket-Messages": "v1",
+          "X-SILENTRA-Ticket-Messages": "v2",
         },
       },
     );
