@@ -12,18 +12,13 @@ const DISCORD_TOKEN_URL = "https://discord.com/api/oauth2/token";
 
 async function refreshDiscordAccessToken(token: JWT): Promise<JWT> {
   if (!token.refreshToken) {
-    return {
-      ...token,
-      authError: "RefreshTokenMissing",
-    };
+    return { ...token, authError: "RefreshTokenMissing" };
   }
 
   try {
     const response = await fetch(DISCORD_TOKEN_URL, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         client_id: process.env.DISCORD_CLIENT_ID ?? "",
         client_secret: process.env.DISCORD_CLIENT_SECRET ?? "",
@@ -45,16 +40,8 @@ async function refreshDiscordAccessToken(token: JWT): Promise<JWT> {
         status: response.status,
         error: data.error ?? "unknown",
       });
-
-      return {
-        ...token,
-        authError: "RefreshAccessTokenError",
-      };
+      return { ...token, authError: "RefreshAccessTokenError" };
     }
-
-    console.info("[auth] Discord access token refreshed", {
-      discordId: token.discordId ?? null,
-    });
 
     return {
       ...token,
@@ -65,11 +52,7 @@ async function refreshDiscordAccessToken(token: JWT): Promise<JWT> {
     };
   } catch (error) {
     console.error("[auth] Discord token refresh exception", error);
-
-    return {
-      ...token,
-      authError: "RefreshAccessTokenError",
-    };
+    return { ...token, authError: "RefreshAccessTokenError" };
   }
 }
 
@@ -81,15 +64,13 @@ export const authOptions: AuthOptions = {
       clientId: process.env.DISCORD_CLIENT_ID!,
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
       authorization: {
-        params: {
-          scope: "identify guilds",
-        },
+        params: { scope: "identify guilds" },
       },
     }),
   ],
 
   callbacks: {
-    async jwt({ token, account, profile }) {
+    async jwt({ token, account }) {
       if (account) {
         token.accessToken = account.access_token;
         token.refreshToken = account.refresh_token;
@@ -105,7 +86,6 @@ export const authOptions: AuthOptions = {
           discordId: account.providerAccountId,
           hasAccessToken: Boolean(account.access_token),
           hasRefreshToken: Boolean(account.refresh_token),
-          hasProfile: Boolean(profile),
         });
 
         return token;
@@ -129,13 +109,13 @@ export const authOptions: AuthOptions = {
           (token.sub as string | undefined) ??
           "";
 
-        session.user.accessToken =
-          token.accessToken as string | undefined;
+        // Discord OAuth tokens stay server-side in the encrypted NextAuth JWT.
+        // Never expose them through the client-visible session object.
+        session.user.accessToken = undefined;
       }
 
       console.info("[auth] Session built", {
         userId: session.user?.id ?? null,
-        hasAccessToken: Boolean(session.user?.accessToken),
         authError: token.authError ?? null,
       });
 
@@ -154,6 +134,20 @@ export const authOptions: AuthOptions = {
 
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60,
+    updateAge: 60 * 60,
+  },
+
+  cookies: {
+    sessionToken: {
+      name: "__Secure-next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: true,
+      },
+    },
   },
 
   debug: process.env.NODE_ENV !== "production",
